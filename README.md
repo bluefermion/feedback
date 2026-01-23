@@ -68,7 +68,7 @@ Include the feedback widget in your HTML:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         Frontend                                 │
+│                         Frontend                                │
 │  ┌─────────────┐  ┌──────────────┐  ┌─────────────────────────┐ │
 │  │  Floating   │  │  Feedback    │  │  Console Log Capture    │ │
 │  │  Button (!) │─▶│  Modal       │─▶│  + Device Metadata      │ │
@@ -77,7 +77,7 @@ Include the feedback widget in your HTML:
                              │ POST /api/feedback
                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                     Go Backend Server                            │
+│                     Go Backend Server                           │
 │  ┌──────────────┐  ┌──────────────┐  ┌────────────────────────┐ │
 │  │ Prompt Guard │─▶│    SQLite    │─▶│   Self-Healing         │ │
 │  │ (injection)  │  │   Storage    │  │   (async)              │ │
@@ -91,16 +91,16 @@ Direct LLM calls with tool calling. No Docker required. Available to all users.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     Go Backend Server                            │
-│                                                                  │
+│                     Go Backend Server                           │
+│                                                                 │
 │  Feedback ──▶ LLM Analyzer ──▶ Tool Calls ──▶ Analysis          │
-│                    │              │                              │
-│                    ▼              ▼                              │
-│              ┌──────────┐  ┌─────────────┐                      │
-│              │ Demeterics│  │ list_files  │                      │
-│              │ API       │  │ get_file    │                      │
-│              └──────────┘  │ (SOURCE_DIR)│                      │
-│                            └─────────────┘                      │
+│                    │              │                             │
+│                    ▼              ▼                             │
+│              ┌───────────┐  ┌─────────────┐                     │
+│              │ Demeterics│  │ list_files  │                     │
+│              │ API       │  │ get_file    │                     │
+│              └───────────┘  │ (SOURCE_DIR)│                     │
+│                             └─────────────┘                     │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -110,24 +110,24 @@ Full OpenCode CLI in Docker. Can modify code and create PRs. Admin only.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     Go Backend Server                            │
-│                                                                  │
+│                     Go Backend Server                           │
+│                                                                 │
 │  Feedback ──▶ trigger-analysis.sh ──▶ docker exec               │
-│                                            │                     │
-└────────────────────────────────────────────┼─────────────────────┘
+│                                            │                    │
+└────────────────────────────────────────────┼────────────────────┘
                                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│              Docker: opencode-selfhealing                        │
-│                                                                  │
+│              Docker: opencode-selfhealing                       │
+│                                                                 │
 │  analyze.sh ──▶ OpenCode CLI ──▶ Full Codebase Access           │
-│                      │                   │                       │
-│                      ▼                   ▼                       │
+│                      │                   │                      │
+│                      ▼                   ▼                      │
 │              ┌──────────────┐    ┌──────────────┐               │
 │              │ Read/Write   │    │ Git Commits  │               │
 │              │ Any File     │    │ Create PRs   │               │
 │              └──────────────┘    └──────────────┘               │
-│                                                                  │
-│  Volume: /workspace ◀── Your Repository                          │
+│                                                                 │
+│  Volume: /workspace ◀── Your Repository                         │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
