@@ -190,6 +190,15 @@ List all feedback (paginated).
 ### GET /api/feedback/{id}
 Get specific feedback entry with all details.
 
+### GET /api/selfhealing/status
+Get the current status of the self-healing system (running state, cooldown, container status).
+
+### GET /feedback
+Admin HTML page listing all feedback entries.
+
+### GET /feedback/{id}
+Admin HTML page showing detailed feedback entry with analysis results.
+
 ## Data Model
 
 ```go
@@ -250,13 +259,13 @@ make setup  # Creates .env from .env.example
 
 ### LLM Settings
 
-The default LLM provider is [Demeterics](https://demeterics.ai) which routes to optimal models.
+The default LLM provider is [Groq](https://groq.com) for fast inference. You can also use [Demeterics](https://demeterics.ai), OpenAI, or Anthropic.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `LLM_API_KEY` | LLM provider API key | - |
-| `LLM_BASE_URL` | LLM API endpoint | `https://api.demeterics.com/chat/v1` |
-| `LLM_MODEL` | Model for analysis | `groq/qwen3-32b` |
+| `LLM_BASE_URL` | LLM API endpoint | `https://api.groq.com/openai/v1` |
+| `LLM_MODEL` | Model for analysis | `llama-3.3-70b-versatile` |
 
 ### Self-Healing Settings
 
@@ -267,6 +276,7 @@ The default LLM provider is [Demeterics](https://demeterics.ai) which routes to 
 | `SELFHEALING_TYPES` | Feedback types to analyze (`bug`, `all`, or comma-separated) | `bug` |
 | `SOURCE_DIR` | Directory for file access (analyze mode) | `.` |
 | `OPENCODE_REPO_DIR` | Repository to mount (opencode mode) | `.` |
+| `OPENCODE_CONTAINER` | Docker container name for OpenCode | `opencode-selfhealing` |
 | `ADMIN_EMAILS` | Comma-separated admin emails (required for opencode) | - |
 | `SKIP_GUARDS` | Skip safety guards | `false` |
 | `DRY_RUN` | Log but don't execute | `false` |
@@ -276,8 +286,6 @@ The default LLM provider is [Demeterics](https://demeterics.ai) which routes to 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `GITHUB_TOKEN` | GitHub personal access token | - |
-| `GIT_USER_NAME` | Git commit author name | `OpenCode Bot` |
-| `GIT_USER_EMAIL` | Git commit author email | `opencode@bluefermionlabs.com` |
 
 ## Self-Healing Analysis
 

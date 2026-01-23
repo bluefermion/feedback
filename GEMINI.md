@@ -76,7 +76,7 @@ FEEDBACK_DB_PATH=feedback.db   # SQLite database path
 # Optional LLM Analysis
 LLM_API_KEY=your-api-key
 LLM_BASE_URL=https://api.groq.com/openai/v1
-LLM_MODEL=qwen/qwen3-32b
+LLM_MODEL=llama-3.3-70b-versatile
 
 # Debug
 COMMON_DEBUG=true              # Enable debug logging
@@ -106,8 +106,11 @@ open http://localhost:8080/demo
 | GET | /health | Health check |
 | GET | /demo | Demo HTML page |
 | POST | /api/feedback | Submit feedback |
-| GET | /api/feedback | List feedback |
-| GET | /api/feedback/{id} | Get feedback by ID |
+| GET | /api/feedback | List feedback (JSON) |
+| GET | /api/feedback/{id} | Get feedback by ID (JSON) |
+| GET | /api/selfhealing/status | Self-healing system status |
+| GET | /feedback | Admin feedback list (HTML) |
+| GET | /feedback/{id} | Admin feedback detail (HTML) |
 | GET | /static/* | Static files (widget) |
 
 ## Code Style
