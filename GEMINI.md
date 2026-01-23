@@ -78,6 +78,12 @@ LLM_API_KEY=your-api-key
 LLM_BASE_URL=https://api.groq.com/openai/v1
 LLM_MODEL=llama-3.3-70b-versatile
 
+# Self-healing / OpenCode (optional)
+OPENCODE_ENABLED=true
+SELFHEALING_MODE=analyze       # analyze or opencode
+GIT_USER_NAME=OpenCode Bot     # Git author for OpenCode commits
+GIT_USER_EMAIL=opencode@example.com
+
 # Debug
 COMMON_DEBUG=true              # Enable debug logging
 ```

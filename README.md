@@ -286,6 +286,8 @@ The default LLM provider is [Groq](https://groq.com) for fast inference. You can
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `GITHUB_TOKEN` | GitHub personal access token | - |
+| `GIT_USER_NAME` | Git author name for OpenCode commits | `OpenCode Bot` |
+| `GIT_USER_EMAIL` | Git author email for OpenCode commits | `opencode@bluefermionlabs.com` |
 
 ## Self-Healing Analysis
 
