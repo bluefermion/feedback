@@ -1,0 +1,40 @@
+# OpenCode Self-Healing Container - MINIMAL
+# Built by Blue Fermion Labs - https://bluefermionlabs.com
+
+FROM node:20-slim
+
+# Install only essential tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    curl \
+    jq \
+    openssh-client \
+    ca-certificates \
+    gettext-base \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install OpenCode via npm
+RUN npm install -g opencode-ai && \
+    opencode --version
+
+# Create config directories
+RUN mkdir -p /root/.local/share/opencode \
+    && mkdir -p /root/.config/opencode \
+    && mkdir -p /workspace
+
+# Copy config and scripts
+COPY config/opencode-auth.json.template /root/.local/share/opencode/auth.json.template
+COPY config/opencode.toml.template /root/.config/opencode/config.toml
+COPY scripts/analyze.sh /app/analyze.sh
+COPY scripts/setup-auth.sh /app/setup-auth.sh
+RUN chmod +x /app/*.sh
+
+# Environment
+ENV LLM_BASE_URL=https://api.groq.com/openai/v1
+ENV OPENCODE_REPO_DIR=/workspace
+
+# Create log file and tail it (so docker logs works)
+RUN touch /var/log/opencode.log
+CMD ["tail", "-f", "/var/log/opencode.log"]

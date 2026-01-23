@@ -1,0 +1,80 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+dist/
+/server
+
+# Go
+*.test
+*.out
+vendor/
+go.work
+go.work.sum
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+feedback.db
+
+# Logs
+*.log
+logs/
+codex-logs/
+
+# Build artifacts
+build/
+tmp/
+temp/
+
+# Node (for frontend widget)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Test coverage
+coverage/
+*.cover
+*.coverage
+coverage.out
+coverage.html
+
+# AppEngine
+app.yaml.local
+*.pyc
+__pycache__/
+
+# Secrets
+credentials*.json
+service-account*.json
+*.pem
+*.key
+secrets/
+
+# Screenshots and uploads (test artifacts)
+uploads/
+screenshots/
+
+# Generated files
+*.generated.go
+config/opencode-auth.json

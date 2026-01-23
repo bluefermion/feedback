@@ -1,0 +1,59 @@
+{{define "title"}}List{{end}}
+
+{{define "content"}}
+    <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h1>Feedback</h1>
+        <span style="color: #666; font-size: 14px;">{{len .}} items</span>
+    </header>
+
+    <div class="card">
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr>
+                    <th style="text-align: left; padding: 12px; background: #fafafa; border-bottom: 1px solid #eee;">ID</th>
+                    <th style="text-align: left; padding: 12px; background: #fafafa; border-bottom: 1px solid #eee;">Type</th>
+                    <th style="text-align: left; padding: 12px; background: #fafafa; border-bottom: 1px solid #eee;">Title</th>
+                    <th style="text-align: left; padding: 12px; background: #fafafa; border-bottom: 1px solid #eee;">Status</th>
+                    <th style="text-align: left; padding: 12px; background: #fafafa; border-bottom: 1px solid #eee;">User</th>
+                    <th style="text-align: left; padding: 12px; background: #fafafa; border-bottom: 1px solid #eee;">Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .}}
+                <!-- 
+                    HTMX Upgrade: 
+                    Instead of 'onclick', we use hx-get.
+                    hx-push-url="true": Updates the browser history.
+                    hx-target="body": Swaps the entire body with the response.
+                -->
+                <tr hx-get="/feedback/{{.ID}}" 
+                    hx-push-url="true" 
+                    hx-target="body"
+                    style="cursor: pointer; border-bottom: 1px solid #eee;">
+                    <td style="padding: 12px;">#{{.ID}}</td>
+                    <td style="padding: 12px;">
+                        <span class="badge badge-{{.Type}}">{{.Type}}</span>
+                    </td>
+                    <td style="padding: 12px;">
+                        {{.Title}}
+                        {{if .Analysis}}
+                            <span title="Has LLM analysis" style="color: #4caf50; margin-left: 4px;">✓</span>
+                        {{end}}
+                    </td>
+                    <td style="padding: 12px;">
+                        <span class="badge badge-{{.Status}}">{{.Status}}</span>
+                    </td>
+                    <td style="padding: 12px;">{{.UserEmail}}</td>
+                    <td style="padding: 12px;">{{.CreatedAt.Format "Jan 02, 2006"}}</td>
+                </tr>
+                {{else}}
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 40px; color: #999;">
+                        No feedback yet. Go to the <a href="/demo">demo page</a> to submit some!
+                    </td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+{{end}}

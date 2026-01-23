@@ -1,0 +1,98 @@
+{{define "title"}}Demo{{end}}
+
+{{define "content"}}
+    <h1>Feedback Widget Demo</h1>
+    <p>This is a demo page to test the feedback widget. Click the yellow button in the bottom-left corner to submit feedback.</p>
+
+    <div class="card">
+        <h2>How it works</h2>
+        <p>The feedback widget captures:</p>
+        <ul>
+            <li>Your feedback title and description</li>
+            <li>Optional screenshot with annotation tools</li>
+            <li>Browser console logs (for debugging)</li>
+            <li>Device and browser information</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h2>View Feedback</h2>
+        <p><a href="/feedback" style="font-size: 18px; font-weight: 500;">→ View All Feedback</a></p>
+        <p style="color: #666; font-size: 14px;">See submitted feedback with LLM analysis results.</p>
+    </div>
+
+    <div class="card">
+        <h2>API Endpoints</h2>
+        <ul>
+            <li><code>POST /api/feedback</code> - Submit feedback</li>
+            <li><code>GET /api/feedback</code> - List all feedback (JSON)</li>
+            <li><code>GET /api/feedback/{id}</code> - Get specific feedback (JSON)</li>
+            <li><code>GET /feedback</code> - Feedback list (HTML)</li>
+            <li><code>GET /feedback/{id}</code> - Feedback detail (HTML)</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h2>User Context (for Self-Healing)</h2>
+        <p>Enter your email to enable admin features like self-healing bug fixes:</p>
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <input type="email" id="user-email" placeholder="your@email.com"
+                   style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; width: 200px;">
+            <input type="text" id="user-name" placeholder="Your Name (optional)"
+                   style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; width: 180px;">
+            <button onclick="setUserContext()"
+                    style="padding: 8px 16px; background: #FF9800; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                Set User
+            </button>
+        </div>
+        <p id="user-status" style="font-size: 13px; color: #888; margin-top: 8px;"></p>
+    </div>
+
+    <div class="card">
+        <h2>Test Console Logging</h2>
+        <p>Open DevTools (F12) and check the console. Try these buttons:</p>
+        <button onclick="console.log('Test log message')">Log Message</button>
+        <button onclick="console.warn('Test warning')">Warning</button>
+        <button onclick="console.error('Test error')">Error</button>
+    </div>
+{{end}}
+
+{{define "scripts"}}
+    <!-- The actual widget script inclusion -->
+    <script src="/static/js/feedback-widget.js"></script>
+    <script>
+        // Initialize widget
+        if (typeof FeedbackWidget !== 'undefined') {
+            FeedbackWidget.init({
+                endpoint: '/api/feedback',
+                debug: true,
+            });
+        }
+
+        // Helper to simulate user context (Authentication)
+        function setUserContext() {
+            const email = document.getElementById('user-email').value.trim();
+            const name = document.getElementById('user-name').value.trim();
+            const status = document.getElementById('user-status');
+
+            if (!email) {
+                status.textContent = 'Please enter an email address.';
+                status.style.color = '#f44336';
+                return;
+            }
+
+            if (typeof FeedbackWidget !== 'undefined') {
+                FeedbackWidget.config.userEmail = email;
+                FeedbackWidget.config.userName = name || '';
+                status.textContent = 'User set: ' + email + (name ? ' (' + name + ')' : '') + ' - Bug reports will now trigger self-healing if you are an admin.';
+                status.style.color = '#4caf50';
+            }
+        }
+    </script>
+{{end}}
+
+{{define "styles"}}
+    <style>
+        code { background: #e0e0e0; padding: 2px 6px; border-radius: 4px; }
+    </style>
+{{end}}

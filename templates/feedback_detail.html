@@ -1,0 +1,67 @@
+{{define "title"}}#{{.ID}} {{.Title}}{{end}}
+
+{{define "content"}}
+    <div class="nav">
+        <a href="/feedback">← Back to List</a>
+    </div>
+
+    <div class="card">
+        <header style="border-bottom: 1px solid #eee; padding-bottom: 16px; margin-bottom: 16px;">
+            <h1 style="font-size: 24px; margin-bottom: 12px;">
+                <span style="color: #999; font-weight: normal;">#{{.ID}}</span> {{.Title}}
+            </h1>
+            <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                <span class="badge badge-{{.Type}}">{{.Type}}</span>
+                <span class="badge badge-{{.Status}}">{{.Status}}</span>
+            </div>
+            <div style="color: #666; font-size: 14px;">
+                <p><strong>Created:</strong> {{.CreatedAt.Format "Jan 02, 2006 at 3:04 PM"}}</p>
+                {{if .UserEmail}}
+                    <p><strong>Submitted by:</strong> {{.UserEmail}} {{if .UserName}}({{.UserName}}){{end}}</p>
+                {{end}}
+                {{if .URL}}
+                    <p><strong>Page URL:</strong> <a href="{{.URL}}" target="_blank">{{.URL}}</a></p>
+                {{end}}
+            </div>
+        </header>
+
+        <div style="margin-top: 24px;">
+            <h2>Description</h2>
+            <div style="white-space: pre-wrap; background: #fafafa; padding: 16px; border-radius: 4px; border-left: 4px solid #ddd;">{{.Description}}</div>
+        </div>
+
+        <div style="margin-top: 24px;">
+            <h2>Device Information</h2>
+            <ul style="list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; color: #666; font-size: 14px;">
+                <li><strong>Browser:</strong> {{.BrowserName}} {{.BrowserVersion}}</li>
+                <li><strong>OS:</strong> {{.OS}}</li>
+                <li><strong>Device:</strong> {{.DeviceType}}</li>
+                <li><strong>Screen:</strong> {{.ScreenWidth}}x{{.ScreenHeight}}</li>
+                <li><strong>Language:</strong> {{.Language}}</li>
+            </ul>
+        </div>
+    </div>
+
+    {{if .Screenshot}}
+    <div class="card">
+        <h2>Screenshot</h2>
+        <img src="{{.Screenshot}}" alt="Screenshot" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;">
+    </div>
+    {{end}}
+
+    {{if .Analysis}}
+    <div class="card" style="background: #e8f5e9;">
+        <h2 style="color: #2e7d32; border-bottom-color: #c8e6c9;">🤖 LLM Analysis</h2>
+        <div style="font-size: 14px;">
+            {{.Analysis | safeMarkdown}}
+        </div>
+    </div>
+    {{end}}
+
+    {{if .ConsoleLogs}}
+    <div class="card">
+        <h2>Console Logs</h2>
+        <pre style="background: #1e1e1e; color: #d4d4d4; padding: 16px; border-radius: 4px; overflow-x: auto; font-size: 12px; max-height: 300px;">{{.ConsoleLogs}}</pre>
+    </div>
+    {{end}}
+{{end}}

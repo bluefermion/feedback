@@ -1,0 +1,26 @@
+# OpenCode Self-Healing Container
+# Built by Blue Fermion Labs - https://bluefermionlabs.com
+#
+# The Go server runs locally. This container provides OpenCode for analysis.
+# Usage: docker-compose up -d
+#
+# API keys passed via .env file - NEVER stored in Git.
+
+services:
+  opencode:
+    container_name: opencode-selfhealing
+    build:
+      context: .
+      dockerfile: Dockerfile.selfhealing
+    volumes:
+      # Mount your repo for OpenCode to analyze
+      - ${OPENCODE_REPO_DIR:-.}:/workspace:rw
+    env_file:
+      - .env
+    environment:
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_BASE_URL=${LLM_BASE_URL:-https://api.demeterics.com/chat/v1}
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - GIT_USER_NAME=${GIT_USER_NAME:-OpenCode Bot}
+      - GIT_USER_EMAIL=${GIT_USER_EMAIL:-opencode@bluefermionlabs.com}
+    restart: unless-stopped

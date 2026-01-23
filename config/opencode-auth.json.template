@@ -1,0 +1,6 @@
+{
+  "groq": {
+    "type": "api",
+    "key": "${LLM_API_KEY}"
+  }
+}

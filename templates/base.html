@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{template "title" .}} - Feedback</title>
+    <!-- HTMX: The magic ingredient for fast loading -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <style>
+        /* Base styles shared across all pages */
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+            line-height: 1.6;
+        }
+        
+        /* Navigation */
+        .nav { margin-bottom: 20px; }
+        .nav a { margin-right: 16px; color: #666; text-decoration: none; }
+        .nav a:hover { color: #333; text-decoration: underline; }
+        
+        /* Cards */
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 24px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        /* Typography */
+        h1 { color: #333; margin: 0 0 12px 0; }
+        h2 { color: #333; font-size: 18px; margin: 0 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid #eee; }
+        p { color: #666; margin: 8px 0; }
+        a { color: #1976d2; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            color: white;
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: capitalize;
+        }
+        /* Badge Colors */
+        .badge-bug { background: #f44336; }
+        .badge-feature { background: #2196f3; }
+        .badge-improvement { background: #ff9800; }
+        .badge-question { background: #9c27b0; }
+        .badge-other { background: #9e9e9e; }
+        
+        .badge-open { background: #4caf50; }
+        .badge-in_progress { background: #ff9800; }
+        .badge-resolved { background: #2196f3; }
+        .badge-closed { background: #9e9e9e; }
+
+        /* HTMX Indicator */
+        .htmx-indicator {
+            display: none;
+            opacity: 0;
+            transition: opacity 200ms ease-in;
+        }
+        .htmx-request .htmx-indicator {
+            display: inline;
+            opacity: 1;
+        }
+        .htmx-request.htmx-indicator {
+            display: inline;
+            opacity: 1;
+        }
+    </style>
+    {{block "styles" .}}{{end}}
+</head>
+<!-- hx-boost="true" makes all links use AJAX automatically -->
+<body hx-boost="true">
+    <div class="nav">
+        <a href="/demo">Demo</a>
+        <a href="/feedback">Feedback List</a>
+        <!-- Spinner shown during loading -->
+        <span class="htmx-indicator">Loading...</span>
+    </div>
+
+    <!-- Main Content Area -->
+    <main id="main-content">
+        {{template "content" .}}
+    </main>
+
+    {{block "scripts" .}}{{end}}
+</body>
+</html>
