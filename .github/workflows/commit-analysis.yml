@@ -38,6 +38,13 @@ jobs:
           # Get list of changed files
           FILES_CHANGED=$(git diff "$BASE_SHA"..."$HEAD_SHA" --name-only 2>/dev/null | head -50 || true)
 
+          echo "::group::PR Info"
+          echo "Title: $PR_TITLE"
+          echo "Author: $PR_AUTHOR"
+          echo "Files changed: $(echo "$FILES_CHANGED" | wc -l)"
+          echo "Diff lines: $(echo "$DIFF" | wc -l)"
+          echo "::endgroup::"
+
           # Use jq to build valid JSON payload
           JSON_PAYLOAD=$(jq -n \
             --arg model "openai/gpt-oss-20b" \
@@ -62,23 +69,46 @@ jobs:
               max_tokens: 1000
             }')
 
-          # Call Demeterics API
-          RESPONSE=$(curl -s https://api.demeterics.com/groq/v1/chat/completions \
+          # Call Demeterics API with verbose output
+          echo "::group::API Call"
+          RESPONSE=$(curl -s -w "\n---HTTP_CODE:%{http_code}---" \
+            https://api.demeterics.com/groq/v1/chat/completions \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $DEMETERICS_API_KEY" \
             -d "$JSON_PAYLOAD")
 
-          # Check for errors first
-          if echo "$RESPONSE" | jq -e '.error' >/dev/null 2>&1; then
-            ERROR_MSG=$(echo "$RESPONSE" | jq -r '.error.message // "Unknown error"')
+          # Extract HTTP code from response
+          HTTP_CODE=$(echo "$RESPONSE" | grep -o 'HTTP_CODE:[0-9]*' | cut -d: -f2)
+          RESPONSE=$(echo "$RESPONSE" | sed 's/---HTTP_CODE:[0-9]*---$//')
+
+          echo "HTTP Status: $HTTP_CODE"
+          echo "Response keys: $(echo "$RESPONSE" | jq -r 'keys | join(", ")' 2>/dev/null || echo 'Not JSON')"
+          echo "::endgroup::"
+
+          # Check HTTP status
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::API returned HTTP $HTTP_CODE"
+            echo "Response: ${RESPONSE:0:1000}"
+            ANALYSIS="API Error: HTTP $HTTP_CODE - ${RESPONSE:0:200}"
+          # Check for API error in response
+          elif echo "$RESPONSE" | jq -e '.error' >/dev/null 2>&1; then
+            ERROR_MSG=$(echo "$RESPONSE" | jq -r '.error.message // .error // "Unknown error"')
             echo "::error::LLM API error: $ERROR_MSG"
-            exit 1
+            ANALYSIS="API Error: $ERROR_MSG"
+          else
+            # Extract analysis from response
+            ANALYSIS=$(echo "$RESPONSE" | jq -r '.choices[0].message.content // empty')
+
+            # Check if content is empty
+            if [ -z "$ANALYSIS" ]; then
+              echo "::warning::Empty content in API response"
+              echo "Full response structure:"
+              echo "$RESPONSE" | jq '.' 2>/dev/null || echo "$RESPONSE"
+              ANALYSIS="Analysis unavailable - API returned empty content. Response: $(echo "$RESPONSE" | jq -c '.choices' 2>/dev/null || echo 'parse error')"
+            fi
           fi
 
-          # Extract analysis from response
-          ANALYSIS=$(echo "$RESPONSE" | jq -r '.choices[0].message.content // "Analysis failed"')
-
-          # Build comment body using printf to avoid heredoc issues
+          # Build comment body
           COMMENT_BODY=$(printf "## AI Code Review\n\n%s\n\n---\n*Powered by [Demeterics](https://demeterics.ai) with openai/gpt-oss-20b*" "$ANALYSIS")
 
           # Post comment to PR
