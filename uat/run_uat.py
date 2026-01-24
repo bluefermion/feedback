@@ -92,9 +92,8 @@ class FeedbackUATRunner:
         """
         try:
             from browser_use import Agent, Browser
-            from langchain_groq import ChatGroq
 
-            # Configure LLM
+            # Configure LLM - use browser-use's built-in provider support
             api_key = os.getenv('GROQ_API_KEY') or os.getenv('LLM_API_KEY')
             if not api_key:
                 return {
@@ -102,11 +101,24 @@ class FeedbackUATRunner:
                     'error': 'No GROQ_API_KEY or LLM_API_KEY found in environment'
                 }
 
-            llm = ChatGroq(
-                model=self.model,
-                api_key=api_key,
-                temperature=0
-            )
+            # Try browser-use's built-in ChatGroq first (has proper provider attribute)
+            try:
+                from browser_use.llm.groq import ChatGroq
+                llm = ChatGroq(
+                    model=self.model,
+                    api_key=api_key,
+                    temperature=0
+                )
+            except ImportError:
+                # Fallback to langchain-groq with provider attribute added
+                from langchain_groq import ChatGroq as LangchainChatGroq
+                llm = LangchainChatGroq(
+                    model=self.model,
+                    api_key=api_key,
+                    temperature=0
+                )
+                # Add provider attribute that browser-use expects
+                llm.provider = "groq"
 
             # Configure browser
             viewport_config = self.viewports.get(viewport, {'width': 1920, 'height': 1080})
@@ -170,7 +182,7 @@ VIEWPORT: {viewport} ({viewport_config['width']}x{viewport_config['height']})
 
         except ImportError as e:
             console.print(f"[red]Import error: {e}[/red]")
-            console.print("[yellow]Run: pip install browser-use langchain-groq[/yellow]")
+            console.print("[yellow]Run: pip install browser-use[/yellow]")
             return {'success': False, 'error': f'Missing dependency: {e}'}
 
         except Exception as e:
