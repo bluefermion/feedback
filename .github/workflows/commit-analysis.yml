@@ -66,7 +66,7 @@ jobs:
                 }
               ],
               temperature: 0.3,
-              max_tokens: 1000
+              max_tokens: 2000
             }')
 
           # Call Demeterics API with verbose output
@@ -97,14 +97,25 @@ jobs:
             ANALYSIS="API Error: $ERROR_MSG"
           else
             # Extract analysis from response
+            # Some reasoning models (like gpt-oss-20b) put output in 'reasoning' field instead of 'content'
             ANALYSIS=$(echo "$RESPONSE" | jq -r '.choices[0].message.content // empty')
 
-            # Check if content is empty
+            # If content is empty, try reasoning field
+            if [ -z "$ANALYSIS" ]; then
+              ANALYSIS=$(echo "$RESPONSE" | jq -r '.choices[0].message.reasoning // empty')
+              if [ -n "$ANALYSIS" ]; then
+                echo "::notice::Using reasoning field (model outputs there instead of content)"
+              fi
+            fi
+
+            # Check if still empty after trying both fields
             if [ -z "$ANALYSIS" ]; then
               echo "::warning::Empty content in API response"
+              FINISH_REASON=$(echo "$RESPONSE" | jq -r '.choices[0].finish_reason // "unknown"')
+              echo "Finish reason: $FINISH_REASON"
               echo "Full response structure:"
               echo "$RESPONSE" | jq '.' 2>/dev/null || echo "$RESPONSE"
-              ANALYSIS="Analysis unavailable - API returned empty content. Response: $(echo "$RESPONSE" | jq -c '.choices' 2>/dev/null || echo 'parse error')"
+              ANALYSIS="Analysis unavailable - API returned empty content (finish_reason: $FINISH_REASON)"
             fi
           fi
 
