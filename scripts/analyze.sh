@@ -107,7 +107,7 @@ $CONSOLE_LOGS"
 fi
 
 # Add "System Instructions" to guide the agent's behavior.
-PROMPT="$PROMPT"
+PROMPT="$PROMPT
 
 Instructions:
 1. Explore the codebase to understand the structure
