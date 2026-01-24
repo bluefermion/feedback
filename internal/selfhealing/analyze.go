@@ -116,30 +116,35 @@ type ChatResponse struct {
 //     No  -> Return final answer.
 func (a *LLMAnalyzer) Analyze(ctx context.Context, feedback *model.Feedback) (string, error) {
 	// SYSTEM PROMPT: Sets the persona and operational constraints.
-	// NOTE: Tool calling disabled due to model compatibility issues.
-	// The LLM provides analysis based on the feedback content only.
 	systemPrompt := `You are a senior software engineer analyzing user feedback and bug reports for a web application.
 
-Analyze the feedback and provide your response in this format:
+Your job is to:
+1. FIRST use list_files to explore the codebase structure
+2. Read relevant source files to understand the code
+3. Identify the root cause if it's a bug
+4. Suggest specific fixes with code snippets
+
+ALWAYS provide your analysis in this format:
 
 ## Summary
 One sentence describing what the user is reporting.
 
+## Relevant Files
+List the files you examined and why.
+
 ## Analysis
-Your technical analysis of the issue. Consider:
-- What the user is trying to accomplish
-- What might be going wrong based on their description
-- Common causes for this type of issue
+Your technical analysis of the issue. If it's a bug, explain the root cause.
+If it's a feature request or question, explain the current behavior.
 
 ## Suggested Fix
-If applicable, suggest what code changes or actions might resolve this.
-Use markdown code blocks for any code examples.
+If applicable, provide specific code changes. Use markdown code blocks.
 If no code change needed, explain what action to take.
 
-## Next Steps
-Recommend what the development team should investigate or verify.
-
-Be helpful and specific based on the information provided.`
+IMPORTANT:
+- Start by listing files to understand the project structure
+- Read the most relevant files based on the feedback
+- Be specific - reference line numbers and function names
+- If the feedback is vague, still explore the code and provide useful context`
 
 	// USER PROMPT: The specific task input.
 	userPrompt := fmt.Sprintf(`Analyze this user feedback:
@@ -159,25 +164,103 @@ Be helpful and specific based on the information provided.`
 
 	// Heuristic: If description is short, guide the LLM to be proactive.
 	if feedback.Description == "" || len(feedback.Description) < 20 {
-		userPrompt += "\n\nNote: The user provided minimal description. Provide general guidance based on the feedback type and title."
+		userPrompt += "\n\nNote: The user provided minimal description. Focus on exploring the codebase structure and providing an overview of the relevant components based on the title."
 	}
 
-	// Simple single-turn LLM call (no tool calling)
+	// TOOL DEFINITIONS: The "Capabilities" we give the agent.
+
+	tools := []Tool{
+		{
+			Type: "function",
+			Function: ToolFunction{
+				Name:        "get_file_content",
+				Description: "Read the content of a source file from the codebase. Only files in the source directory can be read.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"path": map[string]interface{}{
+							"type":        "string",
+							"description": "Relative path to the file (e.g., 'handler/feedback.go' or 'components/Button.tsx')",
+						},
+					},
+					"required": []string{"path"},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: ToolFunction{
+				Name:        "list_files",
+				Description: "List files in a directory of the source code. Use this to discover what files exist.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"path": map[string]interface{}{
+							"type":        "string",
+							"description": "Relative directory path (e.g., 'handler' or 'components'). Use '.' for root.",
+						},
+					},
+					"required": []string{"path"},
+				},
+			},
+		},
+	}
+
+	// Initialize conversation history
 	messages := []ChatMessage{
 		{Role: "system", Content: systemPrompt},
 		{Role: "user", Content: userPrompt},
 	}
 
-	response, err := a.callLLM(ctx, messages, nil)
-	if err != nil {
-		return "", fmt.Errorf("LLM call failed: %w", err)
+	// THE LOOP:
+	// We limit iterations to prevent infinite loops (and huge bills).
+	maxIterations := 10
+	for i := 0; i < maxIterations; i++ {
+		// 1. Ask the LLM
+		response, err := a.callLLM(ctx, messages, tools)
+		if err != nil {
+			return "", fmt.Errorf("LLM call failed: %w", err)
+		}
+
+		if len(response.Choices) == 0 {
+			return "", fmt.Errorf("no response from LLM")
+		}
+
+		choice := response.Choices[0]
+		// Add the assistant's reply (which might contain tool calls) to history
+		messages = append(messages, choice.Message)
+
+		// 2. Check termination condition
+		// If "stop", the LLM is done and has produced the final text answer.
+		// If no tool calls, it's also done.
+		if choice.FinishReason == "stop" || len(choice.Message.ToolCalls) == 0 {
+			return choice.Message.Content, nil
+		}
+
+		// 3. Execute requested tools
+		for _, toolCall := range choice.Message.ToolCalls {
+			result := a.executeTool(toolCall)
+
+			// 4. Feed result back to LLM
+			// The Role is "tool", and ToolCallID links it back to the specific request.
+			messages = append(messages, ChatMessage{
+				Role:       "tool",
+				Content:    result,
+				ToolCallID: toolCall.ID,
+			})
+		}
 	}
 
-	if len(response.Choices) == 0 {
-		return "", fmt.Errorf("no response from LLM")
+	// Fallback: If we run out of turns, return the last thing the assistant said.
+	if len(messages) > 0 {
+		for i := len(messages) - 1; i >= 0; i-- {
+			if messages[i].Role == "assistant" && messages[i].Content != "" {
+				return messages[i].Content, nil
+			}
+		}
 	}
 
-	return response.Choices[0].Message.Content, nil
+	return "", fmt.Errorf("analysis incomplete after %d tool iterations", maxIterations)
 }
 
 // callLLM handles the low-level HTTP networking to the inference provider.
