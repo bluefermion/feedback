@@ -11,6 +11,7 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -18,12 +19,16 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/bluefermion/feedback/internal/model"
 	"github.com/bluefermion/feedback/internal/repository"
 	"github.com/bluefermion/feedback/internal/selfhealing"
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/extension"
+	"github.com/yuin/goldmark/renderer/html"
 )
 
 // FeedbackHandler groups all methods related to feedback operations.
@@ -64,19 +69,39 @@ func NewFeedbackHandler(repo *repository.SQLiteRepository, templateFS fs.FS) *Fe
 			return template.URL(s)
 		},
 		"safeMarkdown": func(s string) template.HTML {
-			// A crude Markdown-to-HTML parser.
-			// In production, use "github.com/yuin/goldmark" or similar libraries.
-			// We are manually replacing syntax to avoid pulling in heavy dependencies for this demo.
-			content := template.HTMLEscapeString(s)
-			content = strings.ReplaceAll(content, "\n## ", "\n</p><h3>")
-			content = strings.ReplaceAll(content, "\n\n", "</p><p>")
-			content = strings.ReplaceAll(content, "```", "</code></pre><pre><code>")
-
-			// Fix invalid initial tag nesting
-			if strings.HasPrefix(content, "</p><h3>") {
-				content = "<h3>" + content[8:]
+			// Handle JSON-wrapped analysis output from self-healing
+			// Format: {"success": true, "analysis": "..."}
+			content := s
+			var wrapper struct {
+				Success  bool   `json:"success"`
+				Analysis string `json:"analysis"`
 			}
-			return template.HTML(content)
+			if err := json.Unmarshal([]byte(s), &wrapper); err == nil && wrapper.Analysis != "" {
+				content = wrapper.Analysis
+			}
+
+			// Strip ANSI escape codes (e.g., \u001b[94m)
+			ansiPattern := regexp.MustCompile(`\x1b\[[0-9;]*m`)
+			content = ansiPattern.ReplaceAllString(content, "")
+
+			// Use goldmark for proper markdown-to-HTML conversion
+			md := goldmark.New(
+				goldmark.WithExtensions(
+					extension.GFM, // GitHub Flavored Markdown
+				),
+				goldmark.WithRendererOptions(
+					html.WithHardWraps(),
+					html.WithUnsafe(), // Allow raw HTML in markdown
+				),
+			)
+
+			var buf bytes.Buffer
+			if err := md.Convert([]byte(content), &buf); err != nil {
+				// Fallback: escape and return as-is
+				return template.HTML("<pre>" + template.HTMLEscapeString(content) + "</pre>")
+			}
+
+			return template.HTML(buf.String())
 		},
 	}
 
