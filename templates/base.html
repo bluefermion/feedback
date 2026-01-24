@@ -94,5 +94,25 @@
     </main>
 
     {{block "scripts" .}}{{end}}
+
+    <!-- Feedback Widget (always loaded) -->
+    <script src="/static/js/feedback-widget.js"></script>
+    <script>
+        // Initialize widget on page load and after HTMX swaps
+        function initFeedbackWidget() {
+            if (typeof FeedbackWidget !== 'undefined' && !document.querySelector('.feedback-trigger-btn')) {
+                FeedbackWidget.init({
+                    endpoint: '/api/feedback',
+                    debug: true,
+                });
+            }
+        }
+
+        // Init on first load
+        initFeedbackWidget();
+
+        // Re-init after HTMX content swap
+        document.body.addEventListener('htmx:afterSwap', initFeedbackWidget);
+    </script>
 </body>
 </html>

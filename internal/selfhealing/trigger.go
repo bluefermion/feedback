@@ -64,14 +64,15 @@ func DefaultConfig() Config {
 		AllowedTypes:  parseAllowedTypes(os.Getenv("SELFHEALING_TYPES")),
 		LLMAPIKey:     os.Getenv("LLM_API_KEY"),
 		LLMBaseURL:    getEnvOrDefault("LLM_BASE_URL", "https://api.demeterics.com/chat/v1"),
-		LLMModel:      getEnvOrDefault("LLM_MODEL", "groq/llama-3.3-70b-versatile"),
+		// Use a model that properly supports function calling via Demeterics
+		LLMModel: getEnvOrDefault("LLM_MODEL", "meta-llama/llama-4-maverick-17b-128e-instruct"),
 	}
 }
 
 // Trigger is the singleton service that manages the lifecycle of analysis jobs.
 type Trigger struct {
-	config    Config
-	lastRun   time.Time
+	config  Config
+	lastRun time.Time
 	// Mutex protects shared state (lastRun, isRunning) from concurrent access
 	// if multiple HTTP requests hit CanTrigger/Execute simultaneously.
 	mu        sync.Mutex
@@ -242,7 +243,7 @@ func (t *Trigger) execute(ctx context.Context, feedback *model.Feedback) Result 
 	}
 
 	log.Printf("[selfhealing] Completed: %s", result.Message)
-	
+
 	// Logging (truncated to avoid spamming stdout)
 	if len(output) > 500 {
 		log.Printf("[selfhealing] Analysis (truncated):\n%s...", output[:500])
@@ -335,7 +336,7 @@ func (t *Trigger) parseOutput(output string, result *Result) {
 			for _, word := range words {
 				if strings.Contains(word, "github.com") && strings.Contains(word, "/pull/") {
 					result.PRURL = strings.Trim(word, "()[]<>")
-					
+
 					// Extract the numeric ID from the URL
 					parts := strings.Split(result.PRURL, "/pull/")
 					if len(parts) > 1 {

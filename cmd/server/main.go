@@ -90,6 +90,14 @@ func main() {
 	templateFS := os.DirFS("templates")
 	feedbackHandler := handler.NewFeedbackHandler(repo, templateFS)
 
+	// Initialize the error handler with OpenCode self-healing integration.
+	// This provides beautiful error pages and triggers automated analysis.
+	openCodeAnalyzer := handler.NewOpenCodeAnalyzer(handler.OpenCodeConfig{
+		ContainerName: "opencode-selfhealing",
+		Enabled:       os.Getenv("OPENCODE_ENABLED") == "true",
+	})
+	errorHandler := handler.NewErrorHandler(templateFS, openCodeAnalyzer)
+
 	// -------------------------------------------------------------------------
 	// 3. ROUTER SETUP
 	// -------------------------------------------------------------------------
@@ -132,6 +140,10 @@ func main() {
 	mux.HandleFunc("GET /feedback", feedbackHandler.HandleFeedbackList)
 	mux.HandleFunc("GET /feedback/{id}", feedbackHandler.HandleFeedbackDetail)
 
+	// Error Page: Preview and trigger routes for the beautiful error page.
+	mux.HandleFunc("GET /error", errorHandler.HandleErrorPreview)
+	mux.HandleFunc("GET /error/trigger", errorHandler.HandleFakeError)
+
 	// -------------------------------------------------------------------------
 	// 4. MIDDLEWARE & SERVER START
 	// -------------------------------------------------------------------------
@@ -146,6 +158,7 @@ func main() {
 	log.Printf("Database: %s", dbPath)
 	log.Printf("Demo: http://localhost:%s/demo", port)
 	log.Printf("Feedback list: http://localhost:%s/feedback", port)
+	log.Printf("Error page preview: http://localhost:%s/error", port)
 
 	// Start the blocking server loop.
 	// ListenAndServe will only return if there's an error (like port already in use).

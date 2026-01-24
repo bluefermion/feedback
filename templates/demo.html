@@ -58,17 +58,7 @@
 {{end}}
 
 {{define "scripts"}}
-    <!-- The actual widget script inclusion -->
-    <script src="/static/js/feedback-widget.js"></script>
     <script>
-        // Initialize widget
-        if (typeof FeedbackWidget !== 'undefined') {
-            FeedbackWidget.init({
-                endpoint: '/api/feedback',
-                debug: true,
-            });
-        }
-
         // Helper to simulate user context (Authentication)
         function setUserContext() {
             const email = document.getElementById('user-email').value.trim();

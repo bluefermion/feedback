@@ -108,12 +108,12 @@ type ChatResponse struct {
 // -----------------------------------------------------------------------------
 
 // Analyze orchestrates the "Thinking Loop" (ReAct Pattern).
-// 1. Prepare Prompt.
-// 2. Loop:
-//    a. Send history to LLM.
-//    b. Did LLM ask for a tool?
-//       Yes -> Execute tool -> Add result to history -> Continue.
-//       No  -> Return final answer.
+//  1. Prepare Prompt.
+//  2. Loop:
+//     a. Send history to LLM.
+//     b. Did LLM ask for a tool?
+//     Yes -> Execute tool -> Add result to history -> Continue.
+//     No  -> Return final answer.
 func (a *LLMAnalyzer) Analyze(ctx context.Context, feedback *model.Feedback) (string, error) {
 	// SYSTEM PROMPT: Sets the persona and operational constraints.
 	systemPrompt := `You are a senior software engineer analyzing user feedback and bug reports for a web application.
@@ -169,7 +169,7 @@ IMPORTANT:
 
 	// TOOL DEFINITIONS: The "Capabilities" we give the agent.
 
-tools := []Tool{
+	tools := []Tool{
 		{
 			Type: "function",
 			Function: ToolFunction{

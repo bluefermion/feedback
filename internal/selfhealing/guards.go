@@ -27,12 +27,12 @@ import (
 
 // GuardResult captures the decision from a safety check.
 type GuardResult struct {
-	OK         bool     `json:"ok"`                  // True if safe to proceed
-	Skipped    bool     `json:"skipped,omitempty"`   // True if checks were disabled
-	Blocked    bool     `json:"blocked,omitempty"`   // True if threat detected
-	Reason     string   `json:"reason,omitempty"`    // Explanation (e.g., "prompt injection detected")
-	Confidence float64  `json:"confidence,omitempty"`// Model certainty (0.0 - 1.0)
-	Categories []string `json:"categories,omitempty"`// Types of threats found (e.g., ["jailbreak"])
+	OK         bool     `json:"ok"`                   // True if safe to proceed
+	Skipped    bool     `json:"skipped,omitempty"`    // True if checks were disabled
+	Blocked    bool     `json:"blocked,omitempty"`    // True if threat detected
+	Reason     string   `json:"reason,omitempty"`     // Explanation (e.g., "prompt injection detected")
+	Confidence float64  `json:"confidence,omitempty"` // Model certainty (0.0 - 1.0)
+	Categories []string `json:"categories,omitempty"` // Types of threats found (e.g., ["jailbreak"])
 }
 
 // Guards encapsulates the configuration for calling external safety APIs.
