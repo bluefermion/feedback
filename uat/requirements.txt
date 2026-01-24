@@ -1,0 +1,29 @@
+# Browser-Use (LLM-driven browser automation)
+browser-use>=0.2.0
+
+# LangChain Groq integration
+langchain-groq>=0.2.0
+
+# Playwright (installed by browser-use, but explicit)
+playwright>=1.40.0
+
+# Image Processing for screenshots
+Pillow>=10.0.0
+
+# HTTP Client
+aiohttp>=3.9.0
+requests>=2.31.0
+
+# HTML Processing
+beautifulsoup4>=4.12.0
+markdownify>=0.11.6
+
+# Configuration
+PyYAML>=6.0.1
+python-dotenv>=1.0.0
+
+# Data Validation
+pydantic>=2.5.0
+
+# Terminal UI
+rich>=13.7.0

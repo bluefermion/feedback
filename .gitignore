@@ -78,3 +78,47 @@ screenshots/
 # Generated files
 *.generated.go
 config/opencode-auth.json
+
+# ===========================================
+# UAT (User Acceptance Testing)
+# ===========================================
+
+# Python
+uat/__pycache__/
+uat/*.py[cod]
+uat/*$py.class
+uat/.Python
+uat/venv/
+uat/env/
+uat/.venv/
+uat/.deps_installed
+
+# UAT Screenshots (can be large, regenerated)
+uat/screenshots/*.png
+uat/screenshots/*.jpg
+uat/screenshots/*.jpeg
+
+# UAT Reports (generated output)
+uat/reports/*.json
+uat/reports/*.md
+uat/reports/*.html
+
+# Keep directory structure
+!uat/screenshots/.gitkeep
+!uat/reports/.gitkeep
+
+# Browser state (contains session cookies - sensitive)
+uat/browser_state/
+
+# Playwright
+uat/test-results/
+uat/playwright-report/
+uat/.playwright/
+
+# Browser-Use
+uat/.browser-use/
+uat/browser_data/
+
+# UAT local config
+uat/.env.local
+uat/config.local.yaml

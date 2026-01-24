@@ -1,0 +1,237 @@
+# Feedback Widget UAT - Page Objectives
+# Plain English success criteria for each page
+
+base_url: "http://localhost:8080"
+
+pages:
+  # ============================================
+  # PUBLIC PAGES
+  # ============================================
+
+  demo:
+    path: "/demo"
+    title: "Feedback Widget Demo"
+    purpose: "Interactive demonstration of the feedback widget functionality"
+
+    objectives:
+      - Page loads within 3 seconds
+      - Yellow feedback button (!) visible in bottom-right corner
+      - Button is clearly clickable with hover state
+      - Clicking button opens feedback modal
+      - Modal shows feedback type selection (Bug, Feature, Improvement, Other)
+      - Message input field is clearly visible
+      - Submit button is prominent and clickable
+      - Cancel/close option is available
+
+    key_elements:
+      - Feedback floating action button (FAB)
+      - Demo content area
+      - Page title or header
+
+    mobile_critical: true
+    authentication_required: false
+
+    interactions:
+      - action: click
+        selector: ".feedback-widget-btn, [class*='feedback']"
+        description: "Open feedback modal"
+      - action: wait
+        duration: 1000
+        description: "Wait for modal animation"
+      - action: screenshot
+        name: "modal_open"
+        description: "Capture open modal state"
+
+  # ============================================
+  # API HEALTH CHECK
+  # ============================================
+
+  health:
+    path: "/health"
+    title: "Health Check Endpoint"
+    purpose: "Verify server is running and responsive"
+
+    objectives:
+      - Returns HTTP 200 status
+      - Response is valid JSON
+      - Response time under 500ms
+
+    key_elements:
+      - JSON response body
+
+    mobile_critical: false
+    authentication_required: false
+    api_only: true
+
+  # ============================================
+  # ADMIN PAGES
+  # ============================================
+
+  feedback_list:
+    path: "/feedback"
+    title: "Admin Feedback List"
+    purpose: "Display all submitted feedback for administrators"
+
+    objectives:
+      - Clear table or list of feedback entries
+      - Each entry shows feedback type with visual indicator
+      - Each entry shows message preview
+      - Each entry shows timestamp
+      - Entries are clickable to view details
+      - Pagination or infinite scroll for many entries
+      - Empty state message if no feedback exists
+
+    key_elements:
+      - Feedback entries list/table
+      - Type indicators (Bug, Feature, etc.)
+      - Timestamps
+      - Navigation to detail view
+
+    mobile_critical: true
+    authentication_required: false  # Adjust if auth is added
+
+  feedback_detail:
+    path: "/feedback/{id}"
+    title: "Feedback Detail View"
+    purpose: "Display complete details of a single feedback submission"
+
+    objectives:
+      - Full message content is visible
+      - Feedback type is clearly displayed
+      - Submission timestamp is shown
+      - Device/browser metadata is accessible
+      - Console logs are viewable (if captured)
+      - Screenshot is displayed (if captured)
+      - Back navigation to list is available
+
+    key_elements:
+      - Complete message text
+      - Type badge/indicator
+      - Metadata section
+      - Console logs section
+      - Screenshot viewer
+      - Back button
+
+    mobile_critical: true
+    authentication_required: false
+    requires_data: true  # Need existing feedback entry
+
+# ============================================
+# TEST WORKFLOWS
+# ============================================
+
+workflows:
+  submit_feedback:
+    name: "Submit Bug Report"
+    description: "Complete flow of submitting a bug report through the widget"
+
+    steps:
+      - page: demo
+        action: navigate
+
+      - action: click
+        selector: ".feedback-widget-btn, button[class*='feedback'], div[class*='feedback-btn']"
+        fallback_selectors:
+          - "button:has-text('!')"
+          - "[onclick*='feedback']"
+        description: "Click feedback button to open modal"
+
+      - action: wait
+        duration: 500
+        description: "Wait for modal to open"
+
+      - action: screenshot
+        name: "modal_opened"
+        description: "Capture modal state"
+
+      - action: click
+        selector: "button:has-text('Bug'), [data-type='Bug'], input[value='Bug']"
+        fallback_selectors:
+          - "label:has-text('Bug')"
+          - ".type-selector button:first-child"
+        description: "Select Bug feedback type"
+
+      - action: type
+        selector: "textarea, input[type='text'][name*='message'], .message-input"
+        text: "UAT Test: This is an automated test submission to verify the feedback widget is working correctly. Timestamp: {timestamp}"
+        description: "Enter feedback message"
+
+      - action: screenshot
+        name: "form_filled"
+        description: "Capture filled form"
+
+      - action: click
+        selector: "button:has-text('Submit'), button[type='submit'], .submit-btn"
+        description: "Submit feedback"
+
+      - action: wait
+        duration: 2000
+        description: "Wait for submission to complete"
+
+      - action: screenshot
+        name: "after_submit"
+        description: "Capture post-submission state"
+
+  verify_submission:
+    name: "Verify Feedback in Admin"
+    description: "Check that submitted feedback appears in admin list"
+
+    steps:
+      - page: feedback_list
+        action: navigate
+
+      - action: wait
+        duration: 1000
+        description: "Wait for page load"
+
+      - action: screenshot
+        name: "feedback_list"
+        description: "Capture feedback list"
+
+      - action: verify
+        check: "contains_text"
+        text: "UAT Test"
+        description: "Verify our test submission appears"
+
+# ============================================
+# VIEWPORT CONFIGURATIONS
+# ============================================
+
+viewports:
+  desktop:
+    width: 1920
+    height: 1080
+    name: "Desktop (1920x1080)"
+
+  laptop:
+    width: 1366
+    height: 768
+    name: "Laptop (1366x768)"
+
+  tablet:
+    width: 768
+    height: 1024
+    name: "Tablet Portrait (768x1024)"
+
+  mobile:
+    width: 375
+    height: 667
+    name: "Mobile (iPhone SE)"
+
+# ============================================
+# SCORING CRITERIA
+# ============================================
+
+scoring:
+  thresholds:
+    pass: 7.0        # Overall score >= 7.0 passes
+    warning: 5.0     # Score 5.0-6.9 is warning
+    fail: 0.0        # Score < 5.0 fails
+
+  weights:
+    usability: 0.25
+    visual_hierarchy: 0.20
+    accessibility: 0.20
+    mobile_responsiveness: 0.15
+    brand_consistency: 0.10
+    real_estate_efficiency: 0.10

@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+env/
+.env.local
+
+# Screenshots and reports (can be large)
+screenshots/*.png
+reports/*.json
+reports/*.md
+
+# Keep directories
+!screenshots/.gitkeep
+!reports/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

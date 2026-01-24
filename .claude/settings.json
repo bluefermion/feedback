@@ -1,0 +1,41 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [[ \"$CLAUDE_FILE_PATH\" == *.go ]]; then gofmt -w \"$CLAUDE_FILE_PATH\" 2>/dev/null || true; fi"
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(go run:*)",
+      "Bash(go test:*)",
+      "Bash(go build:*)",
+      "Bash(go fmt:*)",
+      "Bash(go vet:*)",
+      "Bash(go mod:*)",
+      "Bash(curl:*)",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(lsof:*)",
+      "Bash(pkill:*)"
+    ],
+    "deny": [
+      "Bash(rm -rf /)",
+      "Bash(git checkout .)",
+      "Bash(git reset --hard)",
+      "Bash(git push --force)",
+      "Bash(make prod)",
+      "Bash(make deploy)"
+    ]
+  }
+}

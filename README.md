@@ -69,19 +69,19 @@ Include the feedback widget in your HTML:
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                         Frontend                                │
-│  ┌─────────────┐  ┌──────────────┐  ┌─────────────────────────┐ │
-│  │  Floating   │  │  Feedback    │  │  Console Log Capture    │ │
-│  │  Button (!) │─▶│  Modal       │─▶│  + Device Metadata      │ │
-│  └─────────────┘  └──────────────┘  └─────────────────────────┘ │
+│  ┌─────────────┐   ┌─────────────┐   ┌─────────────────────────┐ │
+│  │  Floating   │   │  Feedback   │   │  Console Log Capture    │ │
+│  │  Button (!) │─▶│  Modal      │─▶│  + Device Metadata     │ │
+│  └─────────────┘   └─────────────┘   └─────────────────────────┘ │
 └────────────────────────────┬────────────────────────────────────┘
                              │ POST /api/feedback
                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                     Go Backend Server                           │
-│  ┌──────────────┐  ┌──────────────┐  ┌────────────────────────┐ │
+│  ┌──────────────┐   ┌─────────────┐   ┌───────────────────────┐ │
 │  │ Prompt Guard │─▶│    SQLite    │─▶│   Self-Healing         │ │
-│  │ (injection)  │  │   Storage    │  │   (async)              │ │
-│  └──────────────┘  └──────────────┘  └────────────────────────┘ │
+│  │ (injection)  │   │   Storage   │   │   (async)             │ │
+│  └──────────────┘   └─────────────┘   └───────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -93,9 +93,9 @@ Direct LLM calls with tool calling. No Docker required. Available to all users.
 ┌─────────────────────────────────────────────────────────────────┐
 │                     Go Backend Server                           │
 │                                                                 │
-│  Feedback ──▶ LLM Analyzer ──▶ Tool Calls ──▶ Analysis          │
+│  Feedback ──▶ LLM Analyzer ──▶ Tool Calls ──▶ Analysis       │
 │                    │              │                             │
-│                    ▼              ▼                             │
+│                    ▼              ▼                           │
 │              ┌───────────┐  ┌─────────────┐                     │
 │              │ Demeterics│  │ list_files  │                     │
 │              │ API       │  │ get_file    │                     │
@@ -112,7 +112,7 @@ Full OpenCode CLI in Docker. Can modify code and create PRs. Admin only.
 ┌─────────────────────────────────────────────────────────────────┐
 │                     Go Backend Server                           │
 │                                                                 │
-│  Feedback ──▶ trigger-analysis.sh ──▶ docker exec               │
+│  Feedback ──▶ trigger-analysis.sh ──▶ docker exec            │
 │                                            │                    │
 └────────────────────────────────────────────┼────────────────────┘
                                              ▼
@@ -121,7 +121,7 @@ Full OpenCode CLI in Docker. Can modify code and create PRs. Admin only.
 │                                                                 │
 │  analyze.sh ──▶ OpenCode CLI ──▶ Full Codebase Access           │
 │                      │                   │                      │
-│                      ▼                   ▼                      │
+│                      ▼                   ▼                    │
 │              ┌──────────────┐    ┌──────────────┐               │
 │              │ Read/Write   │    │ Git Commits  │               │
 │              │ Any File     │    │ Create PRs   │               │

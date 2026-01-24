@@ -5,7 +5,8 @@
 #   make run              - Run Go server locally
 #   make opencode-start   - Start OpenCode container for self-healing
 
-.PHONY: all build run test clean help setup opencode-start opencode-stop opencode-logs
+.PHONY: all build run test clean help setup opencode-start opencode-stop opencode-logs \
+       uat uat-setup uat-headed uat-submit uat-verify uat-full uat-task uat-clean
 
 # Go parameters
 BINARY_NAME=feedback
@@ -20,7 +21,7 @@ help:
 	@echo "Quick Start:"
 	@echo "  make setup          - Create .env from template"
 	@echo "  make run            - Run Go server locally"
-	@echo "  make opencode-start - Start OpenCode container (for self-healing)"
+	@echo "  make uat            - Run UAT tests (requires server running)"
 	@echo ""
 	@echo "Development:"
 	@echo "  make build          - Build Go binary"
@@ -28,6 +29,17 @@ help:
 	@echo "  make lint           - Run linters"
 	@echo "  make fmt            - Format code"
 	@echo "  make clean          - Remove build artifacts"
+	@echo ""
+	@echo "UAT (LLM-Driven Browser Testing):"
+	@echo "  make uat-setup      - Setup Python venv and dependencies"
+	@echo "  make uat            - Run UAT (default: submit workflow)"
+	@echo "  make uat-headed     - Run UAT with visible browser"
+	@echo "  make uat-submit     - Run feedback submission test"
+	@echo "  make uat-verify     - Run submission verification test"
+	@echo "  make uat-full       - Run full workflow (submit + verify)"
+	@echo "  make uat-demo       - Run full workflow with visible browser"
+	@echo "  make uat-task TASK=\"...\" - Run custom natural language task"
+	@echo "  make uat-clean      - Clean UAT artifacts"
 	@echo ""
 	@echo "OpenCode Container:"
 	@echo "  make opencode-build - Build OpenCode container"
@@ -195,3 +207,88 @@ deps:
 	@echo "Installing dependencies..."
 	go mod download
 	go mod tidy
+
+# =============================================================================
+# UAT (User Acceptance Testing with Browser-Use)
+# =============================================================================
+
+UAT_DIR=uat
+UAT_VENV=$(UAT_DIR)/.venv
+UAT_SCRIPT=$(UAT_DIR)/run_uat.sh
+
+# Setup UAT environment (venv, dependencies, playwright)
+uat-setup:
+	@echo "Setting up UAT environment..."
+	@chmod +x $(UAT_SCRIPT)
+	@cd $(UAT_DIR) && \
+		python3 -m venv .venv && \
+		. .venv/bin/activate && \
+		pip install --quiet --upgrade pip && \
+		pip install --quiet -r requirements.txt && \
+		playwright install chromium
+	@rm -f $(UAT_VENV)/.deps_installed
+	@touch $(UAT_VENV)/.deps_installed
+	@echo ""
+	@echo "UAT setup complete!"
+	@echo "Run 'make uat' to execute tests"
+
+# Run UAT (default: submit workflow)
+uat:
+	@chmod +x $(UAT_SCRIPT)
+	@$(UAT_SCRIPT)
+
+# Run UAT with visible browser
+uat-headed:
+	@chmod +x $(UAT_SCRIPT)
+	@$(UAT_SCRIPT) --headed
+
+# Run submit feedback workflow
+uat-submit:
+	@chmod +x $(UAT_SCRIPT)
+	@$(UAT_SCRIPT) --workflow submit
+
+# Run verify submission workflow
+uat-verify:
+	@chmod +x $(UAT_SCRIPT)
+	@$(UAT_SCRIPT) --workflow verify
+
+# Run full workflow (submit + verify)
+uat-full:
+	@chmod +x $(UAT_SCRIPT)
+	@$(UAT_SCRIPT) --workflow full
+
+# Run full workflow with visible browser
+uat-demo:
+	@chmod +x $(UAT_SCRIPT)
+	@$(UAT_SCRIPT) --headed --workflow full
+
+# Run custom task (usage: make uat-task TASK="your task here")
+uat-task:
+	@if [ -z "$(TASK)" ]; then \
+		echo "Usage: make uat-task TASK=\"your natural language task\""; \
+		echo "Example: make uat-task TASK=\"Click the feedback button and submit a bug report\""; \
+		exit 1; \
+	fi
+	@chmod +x $(UAT_SCRIPT)
+	@$(UAT_SCRIPT) --task "$(TASK)"
+
+# Run all page tests
+uat-all:
+	@chmod +x $(UAT_SCRIPT)
+	@$(UAT_SCRIPT) --all
+
+# Clean UAT artifacts
+uat-clean:
+	@echo "Cleaning UAT artifacts..."
+	@rm -rf $(UAT_DIR)/screenshots/*.png
+	@rm -rf $(UAT_DIR)/reports/*.json
+	@rm -rf $(UAT_DIR)/reports/*.md
+	@rm -rf $(UAT_DIR)/browser_state/
+	@rm -rf $(UAT_DIR)/__pycache__/
+	@echo "UAT artifacts cleaned"
+
+# Deep clean UAT (including venv)
+uat-clean-all: uat-clean
+	@echo "Removing UAT virtual environment..."
+	@rm -rf $(UAT_VENV)
+	@echo "UAT fully cleaned"

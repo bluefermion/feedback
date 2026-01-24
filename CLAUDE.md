@@ -1,164 +1,67 @@
-# CLAUDE.md - Claude Code Context
+# CLAUDE.md - Feedback Service
 
-This file provides context for Claude Code when working with this repository.
+> Standalone feedback widget + Go backend by [Blue Fermion Labs](https://bluefermionlabs.com)
 
-## Project Overview
+## ⚠️ PRIME DIRECTIVES
 
-**feedback** is a standalone feedback collection and analysis system built by [Blue Fermion Labs](https://bluefermionlabs.com). It provides:
+1. **NEVER** deploy without explicit user permission — always ask first
+2. **NEVER** run `git checkout`/`git reset --hard` that destroys uncommitted work
+3. **NEVER** delete database tables directly — use safe migration pattern
+4. **NEVER** commit secrets or credentials to version control
+5. **ALWAYS** run `go fmt` and `go vet` before commits — vet MUST pass
 
-1. **Frontend Widget** - A yellow floating button with "!" icon that captures user feedback
-2. **Go Backend** - HTTP handlers for feedback submission and storage in SQLite
-3. **LLM Analysis** - Optional automatic error analysis and categorization
-4. **OpenCode Integration** - When an admin submits feedback, can trigger automated code analysis via [OpenCode.ai](https://opencode.ai)
-
-## Repository Structure
-
-```
-feedback/
-├── cmd/
-│   └── server/
-│       └── main.go            # Entry point, HTTP server setup
-├── internal/
-│   ├── handler/
-│   │   └── feedback.go        # HTTP handlers for /api/feedback
-│   ├── model/
-│   │   └── feedback.go        # Feedback data model
-│   └── repository/
-│       └── repository.go      # SQLite CRUD operations
-├── widget/
-│   └── js/
-│       └── feedback-widget.js # Frontend widget
-├── go.mod
-├── README.md
-├── CLAUDE.md
-├── GEMINI.md
-├── LICENSE
-└── .gitignore
-```
-
-## Key Components
-
-### Feedback Widget (widget/js/)
-- Floating yellow "!" button (Material Orange #FF9800)
-- Type selection: Bug, Feature, Improvement, Other
-- Console log interception (stores last 50 entries)
-- Device/browser metadata collection
-- Auto-init on page load
-
-### Backend Server (cmd/server/)
-- HTTP server with routing
-- Static file serving for widget
-- Demo page at /demo
-- Logging middleware
-
-### HTTP Handlers (internal/handler/)
-- `POST /api/feedback` - Submit feedback
-- `GET /api/feedback` - List all feedback (paginated)
-- `GET /api/feedback/{id}` - Get specific feedback
-- Input validation and sanitization
-
-### Data Model (internal/model/)
-- Feedback struct with all fields
-- Request/Response types
-- Error response type
-
-### Repository (internal/repository/)
-- SQLite storage with WAL mode
-- Auto-migration on startup
-- CRUD operations with proper error handling
-
-## Environment Variables
+## Commands
 
 ```bash
-# Server config
-PORT=8080                      # HTTP port (default: 8080)
-FEEDBACK_DB_PATH=feedback.db   # SQLite database path
-
-# Optional LLM Analysis
-LLM_API_KEY=your-api-key
-LLM_BASE_URL=https://api.groq.com/openai/v1
-LLM_MODEL=llama-3.3-70b-versatile
-
-# Self-healing / OpenCode (optional)
-OPENCODE_ENABLED=true
-SELFHEALING_MODE=analyze       # analyze or opencode
-GIT_USER_NAME=OpenCode Bot     # Git author for OpenCode commits
-GIT_USER_EMAIL=opencode@example.com
-
-# Debug
-COMMON_DEBUG=true              # Enable debug logging
+go run ./cmd/server           # Run locally (:8080)
+go test ./...                 # Run all tests
+go build -o bin/feedback ./cmd/server  # Build binary
+go fmt ./... && go vet ./...  # Quality gates (required before commit)
 ```
-
-## Common Commands
-
-```bash
-# Run locally
-go run ./cmd/server
-
-# Run tests
-go test ./...
-
-# Build
-go build -o bin/feedback ./cmd/server
-
-# Access demo
-open http://localhost:8080/demo
-```
-
-## API Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | / | Service info (JSON) |
-| GET | /health | Health check |
-| GET | /demo | Demo HTML page |
-| POST | /api/feedback | Submit feedback |
-| GET | /api/feedback | List feedback (JSON) |
-| GET | /api/feedback/{id} | Get feedback by ID (JSON) |
-| GET | /api/selfhealing/status | Self-healing system status |
-| GET | /feedback | Admin feedback list (HTML) |
-| GET | /feedback/{id} | Admin feedback detail (HTML) |
-| GET | /static/* | Static files (widget) |
 
 ## Code Style
 
-- Standard Go formatting (gofmt/goimports)
-- Error wrapping with context
-- JSON for all API responses
-- Internal packages for implementation details
+- **IMPORTANT**: `gofmt` and `goimports` required for all Go code
+- Wrap errors with context: `fmt.Errorf("operation: %w", err)`
+- API routes (`/api/*`) return JSON; Web routes (`/feedback/*`) return HTML
+- Internal packages (`internal/`) not importable externally
 
-## Testing
+## Architecture
 
-```bash
-# Run all tests
-go test ./...
-
-# Run with verbose output
-go test -v ./...
-
-# Run specific package
-go test ./internal/handler/...
+```
+cmd/server/main.go        → Entry point, routing
+internal/handler/         → HTTP handlers
+internal/model/           → Data structures
+internal/repository/      → SQLite CRUD (WAL mode)
+widget/js/                → Frontend widget (auto-init)
 ```
 
-## Dependencies
+## Environment
 
-- `modernc.org/sqlite` - Pure Go SQLite driver (no CGO)
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `PORT` | 8080 | HTTP server port |
+| `FEEDBACK_DB_PATH` | feedback.db | SQLite path |
+| `LLM_API_KEY` | — | Optional LLM analysis |
+| `OPENCODE_ENABLED` | false | OpenCode integration |
 
-## Production Notes
+## Key Behaviors
 
-For production deployment, consider:
-1. Adding authentication middleware
-2. Switching to PostgreSQL for high concurrency
-3. Enabling content moderation with LLM guards
-4. Adding rate limiting
+- Widget auto-initializes on page load
+- SQLite WAL mode — also backs up `.db-wal` and `.db-shm` files
+- Database auto-migrates on startup
+- Pure Go SQLite (`modernc.org/sqlite`) — no CGO
 
-See [demeterics.ai](https://demeterics.ai) for a production implementation.
+## Gotchas
 
-## Related Projects
+- **YOU MUST** validate feedback type: `Bug`, `Feature`, `Improvement`, `Other`
+- Widget color is Material Orange (`#FF9800`)
+- Go 1.22+ panics on duplicate route patterns — check before adding
+- Template-struct mismatches crash at runtime — verify before deploy
+- Check `github.com/patdeg/common` before adding new utilities
 
-- [demeterics.com](https://demeterics.com) - AI Chat Widget (sister project)
-- [github.com/patdeg/common](https://github.com/patdeg/common) - Shared Go utilities
+## Deployment
 
-## Attribution
-
-Built by [Blue Fermion Labs](https://bluefermionlabs.com)
+- Git is version control only, NOT deployment
+- One deployment per request — stop and confirm between deploys
+- Ask: "Deploy to dev or production?" — never assume
