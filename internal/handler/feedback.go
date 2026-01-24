@@ -29,8 +29,8 @@ import (
 // FeedbackHandler groups all methods related to feedback operations.
 // It holds references to its dependencies (repository, self-healing service, templates).
 type FeedbackHandler struct {
-	repo      *repository.SQLiteRepository
-	selfheal  *selfhealing.Trigger
+	repo     *repository.SQLiteRepository
+	selfheal *selfhealing.Trigger
 	// templates maps a page name (e.g., "demo") to its fully parsed template instance.
 	// This approach (Pre-computation/Caching) is thread-safe and performant.
 	templates map[string]*template.Template
@@ -67,7 +67,7 @@ func NewFeedbackHandler(repo *repository.SQLiteRepository, templateFS fs.FS) *Fe
 			content = strings.ReplaceAll(content, "\n## ", "\n</p><h3>")
 			content = strings.ReplaceAll(content, "\n\n", "</p><p>")
 			content = strings.ReplaceAll(content, "```", "</code></pre><pre><code>")
-			
+
 			// Fix invalid initial tag nesting
 			if strings.HasPrefix(content, "</p><h3>") {
 				content = "<h3>" + content[8:]
@@ -81,7 +81,7 @@ func NewFeedbackHandler(repo *repository.SQLiteRepository, templateFS fs.FS) *Fe
 	// 1. Parse the shared "base.html" (layout) once.
 	// 2. For each page, CLONE the base and parse the specific page file into it.
 	// 3. Store the result in a map keyed by the page name.
-	
+
 	// Step 1: Parse Base
 	// template.Must() is a helper that panics if the error is non-nil.
 	// This is idiomatic for initialization code: if templates are broken, the app MUST crash on startup.
@@ -95,14 +95,14 @@ func NewFeedbackHandler(repo *repository.SQLiteRepository, templateFS fs.FS) *Fe
 		// Clone() ensures we start fresh with the base layout for each page.
 		// template.Must() handles the error checking for both Clone and ParseFS.
 		// If either fails, the application panics immediately (Fail Fast).
-		
+
 		// 1. Clone the base (cheap copy)
 		clone := template.Must(baseTmpl.Clone())
-		
+
 		// 2. Parse the specific page content into the clone
 		// This overwrites the {{template "content"}} definition for this specific instance.
 		parsed := template.Must(clone.ParseFS(templateFS, page))
-		
+
 		templates[page] = parsed
 	}
 
@@ -124,12 +124,12 @@ func (h *FeedbackHandler) render(w http.ResponseWriter, r *http.Request, name st
 	}
 
 	w.Header().Set("Content-Type", "text/html")
-	
+
 	// HTMX LOGIC:
 	// If this is an HTMX request, the client only wants the HTML fragment for the body,
 	// not the full <html><head>... wrapper.
 	isHTMX := r.Header.Get("HX-Request") == "true"
-	
+
 	target := "base.html"
 	if isHTMX {
 		target = "content"
@@ -201,8 +201,8 @@ func (h *FeedbackHandler) HandleSubmit(w http.ResponseWriter, r *http.Request) {
 		Annotations: req.Annotations,
 		ConsoleLogs: req.ConsoleLogs,
 		// Capture HTTP headers for context (Security/Auditing).
-		URL:         r.Header.Get("Referer"),
-		UserAgent:   r.UserAgent(),
+		URL:       r.Header.Get("Referer"),
+		UserAgent: r.UserAgent(),
 	}
 
 	// The widget sends a loose 'Metadata' map. We explicitly parse known keys
