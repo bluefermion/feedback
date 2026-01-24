@@ -45,7 +45,7 @@
     {{if .Screenshot}}
     <div class="card">
         <h2>Screenshot</h2>
-        <img src="{{.Screenshot}}" alt="Screenshot" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;">
+        <img src="{{.Screenshot | safeURL}}" alt="Screenshot" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;">
     </div>
     {{end}}
 

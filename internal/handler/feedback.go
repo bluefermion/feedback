@@ -59,6 +59,10 @@ func NewFeedbackHandler(repo *repository.SQLiteRepository, templateFS fs.FS) *Fe
 
 	// Initialize templates with custom functions
 	funcMap := template.FuncMap{
+		"safeURL": func(s string) template.URL {
+			// Mark data URLs as safe for img src attributes
+			return template.URL(s)
+		},
 		"safeMarkdown": func(s string) template.HTML {
 			// A crude Markdown-to-HTML parser.
 			// In production, use "github.com/yuin/goldmark" or similar libraries.
