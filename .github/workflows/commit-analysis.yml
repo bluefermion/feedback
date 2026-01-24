@@ -63,20 +63,44 @@ jobs:
             }')
 
           # Call Demeterics API
-          RESPONSE=$(curl -s https://api.demeterics.com/groq/v1/chat/completions \
+          echo "::group::Calling Demeterics API"
+          RESPONSE=$(curl -s -w "\n%{http_code}" https://api.demeterics.com/groq/v1/chat/completions \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $DEMETERICS_API_KEY" \
             -d "$JSON_PAYLOAD")
 
+          # Extract HTTP status code (last line)
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          RESPONSE=$(echo "$RESPONSE" | sed '$d')
+          echo "HTTP Status: $HTTP_CODE"
+          echo "::endgroup::"
+
+          # Debug: Show response structure (truncated)
+          echo "::group::API Response Debug"
+          echo "$RESPONSE" | jq -r 'keys' 2>/dev/null || echo "Response is not valid JSON: ${RESPONSE:0:500}"
+          echo "::endgroup::"
+
           # Check for errors first
           if echo "$RESPONSE" | jq -e '.error' >/dev/null 2>&1; then
-            ERROR_MSG=$(echo "$RESPONSE" | jq -r '.error.message // "Unknown error"')
+            ERROR_MSG=$(echo "$RESPONSE" | jq -r '.error.message // .error // "Unknown error"')
             echo "::error::LLM API error: $ERROR_MSG"
             exit 1
           fi
 
+          # Check HTTP status
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::API returned HTTP $HTTP_CODE: ${RESPONSE:0:500}"
+            exit 1
+          fi
+
           # Extract analysis from response
-          ANALYSIS=$(echo "$RESPONSE" | jq -r '.choices[0].message.content // "Analysis failed"')
+          ANALYSIS=$(echo "$RESPONSE" | jq -r '.choices[0].message.content // empty')
+
+          # Fallback if empty
+          if [ -z "$ANALYSIS" ]; then
+            echo "::warning::No content in response, showing raw structure"
+            ANALYSIS=$(echo "$RESPONSE" | jq -r '.choices // "No choices in response"')
+          fi
 
           # Build comment body using printf to avoid heredoc issues
           COMMENT_BODY=$(printf "## AI Code Review\n\n%s\n\n---\n*Powered by [Demeterics](https://demeterics.ai) with openai/gpt-oss-20b*" "$ANALYSIS")
