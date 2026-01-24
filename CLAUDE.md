@@ -19,6 +19,25 @@ go build -o bin/feedback ./cmd/server  # Build binary
 go fmt ./... && go vet ./...  # Quality gates (required before commit)
 ```
 
+## Git Workflow (AI-Assisted)
+
+```bash
+make branch NAME=add-feature  # Create feature branch
+make pr                       # Create PR with AI-generated description (preview)
+make pr-auto                  # Create PR without preview (for CI/CD)
+```
+
+**Workflow:**
+1. `make branch NAME=my-feature` — creates `feature/my-feature` branch
+2. Make commits with clear messages
+3. `make pr` — analyzes commits, generates title/description via Demeterics LLM
+4. Review preview → `Y` (create) / `e` (edit) / `n` (cancel)
+
+**PR Analysis on GitHub:**
+- PRs to `main` trigger `.github/workflows/commit-analysis.yml`
+- AI reviews the diff and posts analysis as a PR comment
+- Uses Demeterics API with `openai/gpt-oss-20b`
+
 ## Code Style
 
 - **IMPORTANT**: `gofmt` and `goimports` required for all Go code
@@ -43,6 +62,7 @@ widget/js/                → Frontend widget (auto-init)
 | `PORT` | 8080 | HTTP server port |
 | `FEEDBACK_DB_PATH` | feedback.db | SQLite path |
 | `LLM_API_KEY` | — | Optional LLM analysis |
+| `DEMETERICS_API_KEY` | — | AI PR generation (`make pr`) |
 | `OPENCODE_ENABLED` | false | OpenCode integration |
 
 ## Key Behaviors
