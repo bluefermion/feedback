@@ -64,7 +64,8 @@ func DefaultConfig() Config {
 		AllowedTypes:  parseAllowedTypes(os.Getenv("SELFHEALING_TYPES")),
 		LLMAPIKey:     os.Getenv("LLM_API_KEY"),
 		LLMBaseURL:    getEnvOrDefault("LLM_BASE_URL", "https://api.demeterics.com/chat/v1"),
-		LLMModel:      getEnvOrDefault("LLM_MODEL", "groq/llama-3.3-70b-versatile"),
+		// Use a model that properly supports function calling via Demeterics
+		LLMModel: getEnvOrDefault("LLM_MODEL", "meta-llama/llama-4-maverick-17b-128e-instruct"),
 	}
 }
 
