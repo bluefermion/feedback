@@ -18,12 +18,13 @@ jobs:
       - name: Analyze Commit with LLM
         env:
           DEMETERICS_API_KEY: ${{ secrets.DEMETERICS_API_KEY }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          COMMIT_SHA: ${{ github.sha }}
+        shell: bash
         run: |
-          # Get repo name from GitHub context
-          REPO_NAME="${{ github.event.repository.name }}"
+          set -e
 
           # Get commit info
-          COMMIT_SHA="${{ github.sha }}"
           COMMIT_MSG=$(git log -1 --pretty=%B)
           COMMIT_AUTHOR=$(git log -1 --pretty=%an)
 
@@ -34,40 +35,25 @@ jobs:
             COMMIT_DIFF=$(git show --no-color | head -500)
           fi
 
-          # Build system prompt with Demeterics metadata (zero token cost)
-          SYSTEM_PROMPT="/// APP: GitHub-Commit-Analysis
-/// FLOW: ${REPO_NAME}
-/// USER: ${COMMIT_AUTHOR}
-/// ENV: production
-
-You are a code review assistant. Analyze the git commit and provide:
-1. **Summary**: Brief description of what changed
-2. **Risk Assessment**: Any potential bugs, issues, or breaking changes
-3. **Security**: Security considerations if applicable
-4. **Suggestions**: Improvements or best practices
-
-Be concise and actionable."
-
-          # Build user message
-          USER_MSG="Analyze this commit:
-
-Commit: ${COMMIT_SHA:0:7}
-Author: ${COMMIT_AUTHOR}
-Message: ${COMMIT_MSG}
-
-Diff:
-${COMMIT_DIFF}"
-
-          # Use jq to build valid JSON payload
+          # Use jq to build valid JSON payload with all escaping handled
           JSON_PAYLOAD=$(jq -n \
             --arg model "openai/gpt-oss-20b" \
-            --arg system "$SYSTEM_PROMPT" \
-            --arg user "$USER_MSG" \
+            --arg repo "$REPO_NAME" \
+            --arg author "$COMMIT_AUTHOR" \
+            --arg sha "${COMMIT_SHA:0:7}" \
+            --arg msg "$COMMIT_MSG" \
+            --arg diff "$COMMIT_DIFF" \
             '{
               model: $model,
               messages: [
-                {role: "system", content: $system},
-                {role: "user", content: $user}
+                {
+                  role: "system",
+                  content: ("/// APP: GitHub-Commit-Analysis\n/// FLOW: " + $repo + "\n/// USER: " + $author + "\n/// ENV: production\n\nYou are a code review assistant. Analyze the git commit and provide:\n1. Summary: Brief description of what changed\n2. Risk Assessment: Any potential bugs, issues, or breaking changes\n3. Security: Security considerations if applicable\n4. Suggestions: Improvements or best practices\n\nBe concise and actionable.")
+                },
+                {
+                  role: "user",
+                  content: ("Analyze this commit:\n\nCommit: " + $sha + "\nAuthor: " + $author + "\nMessage: " + $msg + "\n\nDiff:\n" + $diff)
+                }
               ],
               temperature: 0.3,
               max_tokens: 1000
@@ -83,7 +69,6 @@ ${COMMIT_DIFF}"
           if echo "$RESPONSE" | jq -e '.error' >/dev/null 2>&1; then
             ERROR_MSG=$(echo "$RESPONSE" | jq -r '.error.message // "Unknown error"')
             echo "::error::LLM API error: $ERROR_MSG"
-            echo "Response: $RESPONSE"
             exit 1
           fi
 
@@ -91,14 +76,16 @@ ${COMMIT_DIFF}"
           ANALYSIS=$(echo "$RESPONSE" | jq -r '.choices[0].message.content // "Analysis failed"')
 
           # Output to GitHub Step Summary
-          echo "## Commit Analysis" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Commit:** \`${COMMIT_SHA:0:7}\` by ${COMMIT_AUTHOR}" >> $GITHUB_STEP_SUMMARY
-          echo "**Message:** ${COMMIT_MSG}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Analysis" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "$ANALYSIS" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "---" >> $GITHUB_STEP_SUMMARY
-          echo "*Powered by [Demeterics](https://demeterics.ai) with openai/gpt-oss-20b*" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Commit Analysis"
+            echo ""
+            echo "**Commit:** \`${COMMIT_SHA:0:7}\` by ${COMMIT_AUTHOR}"
+            echo "**Message:** ${COMMIT_MSG}"
+            echo ""
+            echo "### Analysis"
+            echo ""
+            echo "$ANALYSIS"
+            echo ""
+            echo "---"
+            echo "*Powered by [Demeterics](https://demeterics.ai) with openai/gpt-oss-20b*"
+          } >> "$GITHUB_STEP_SUMMARY"
