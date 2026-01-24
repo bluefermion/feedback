@@ -25,8 +25,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          set -e
-
           # Get PR info
           PR_TITLE="${{ github.event.pull_request.title }}"
           PR_AUTHOR="${{ github.event.pull_request.user.login }}"
@@ -34,10 +32,11 @@ jobs:
           HEAD_SHA="${{ github.event.pull_request.head.sha }}"
 
           # Get diff between base and head (limit to 500 lines)
-          DIFF=$(git diff "$BASE_SHA"..."$HEAD_SHA" --no-color | head -500)
+          # Use || true to prevent SIGPIPE (exit 141) when head closes pipe early
+          DIFF=$(git diff "$BASE_SHA"..."$HEAD_SHA" --no-color 2>/dev/null | head -500 || true)
 
           # Get list of changed files
-          FILES_CHANGED=$(git diff "$BASE_SHA"..."$HEAD_SHA" --name-only | head -50)
+          FILES_CHANGED=$(git diff "$BASE_SHA"..."$HEAD_SHA" --name-only 2>/dev/null | head -50 || true)
 
           # Use jq to build valid JSON payload
           JSON_PAYLOAD=$(jq -n \
