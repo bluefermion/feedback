@@ -34,50 +34,61 @@ jobs:
             COMMIT_DIFF=$(git show --no-color | head -500)
           fi
 
-          # Escape for JSON
-          COMMIT_MSG_ESCAPED=$(echo "$COMMIT_MSG" | jq -Rs .)
-          COMMIT_DIFF_ESCAPED=$(echo "$COMMIT_DIFF" | jq -Rs .)
-
           # Build system prompt with Demeterics metadata (zero token cost)
-          # These /// comments are parsed by Demeterics for analytics, then stripped
           SYSTEM_PROMPT="/// APP: GitHub-Commit-Analysis
-          /// FLOW: ${REPO_NAME}
-          /// USER: ${COMMIT_AUTHOR}
-          /// ENV: production
+/// FLOW: ${REPO_NAME}
+/// USER: ${COMMIT_AUTHOR}
+/// ENV: production
 
-          You are a code review assistant. Analyze the git commit and provide:
-          1. **Summary**: Brief description of what changed
-          2. **Risk Assessment**: Any potential bugs, issues, or breaking changes
-          3. **Security**: Security considerations if applicable
-          4. **Suggestions**: Improvements or best practices
+You are a code review assistant. Analyze the git commit and provide:
+1. **Summary**: Brief description of what changed
+2. **Risk Assessment**: Any potential bugs, issues, or breaking changes
+3. **Security**: Security considerations if applicable
+4. **Suggestions**: Improvements or best practices
 
-          Be concise and actionable."
+Be concise and actionable."
 
-          SYSTEM_ESCAPED=$(echo "$SYSTEM_PROMPT" | jq -Rs .)
+          # Build user message
+          USER_MSG="Analyze this commit:
 
-          # Call Demeterics API with openai/gpt-oss-20b
+Commit: ${COMMIT_SHA:0:7}
+Author: ${COMMIT_AUTHOR}
+Message: ${COMMIT_MSG}
+
+Diff:
+${COMMIT_DIFF}"
+
+          # Use jq to build valid JSON payload
+          JSON_PAYLOAD=$(jq -n \
+            --arg model "openai/gpt-oss-20b" \
+            --arg system "$SYSTEM_PROMPT" \
+            --arg user "$USER_MSG" \
+            '{
+              model: $model,
+              messages: [
+                {role: "system", content: $system},
+                {role: "user", content: $user}
+              ],
+              temperature: 0.3,
+              max_tokens: 1000
+            }')
+
+          # Call Demeterics API
           RESPONSE=$(curl -s https://api.demeterics.com/groq/v1/chat/completions \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $DEMETERICS_API_KEY" \
-            -d "{
-              \"model\": \"openai/gpt-oss-20b\",
-              \"messages\": [
-                {\"role\": \"system\", \"content\": $SYSTEM_ESCAPED},
-                {\"role\": \"user\", \"content\": \"Analyze this commit:\\n\\nCommit: ${COMMIT_SHA:0:7}\\nAuthor: ${COMMIT_AUTHOR}\\nMessage: $COMMIT_MSG_ESCAPED\\n\\nDiff:\\n$COMMIT_DIFF_ESCAPED\"}
-              ],
-              \"temperature\": 0.3,
-              \"max_tokens\": 1000
-            }")
+            -d "$JSON_PAYLOAD")
 
-          # Extract analysis from response
-          ANALYSIS=$(echo "$RESPONSE" | jq -r '.choices[0].message.content // "Analysis failed"')
-
-          # Check for errors
+          # Check for errors first
           if echo "$RESPONSE" | jq -e '.error' >/dev/null 2>&1; then
             ERROR_MSG=$(echo "$RESPONSE" | jq -r '.error.message // "Unknown error"')
             echo "::error::LLM API error: $ERROR_MSG"
+            echo "Response: $RESPONSE"
             exit 1
           fi
+
+          # Extract analysis from response
+          ANALYSIS=$(echo "$RESPONSE" | jq -r '.choices[0].message.content // "Analysis failed"')
 
           # Output to GitHub Step Summary
           echo "## Commit Analysis" >> $GITHUB_STEP_SUMMARY
