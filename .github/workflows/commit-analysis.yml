@@ -1,0 +1,93 @@
+name: Commit Analysis
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Analyze Commit with LLM
+        env:
+          DEMETERICS_API_KEY: ${{ secrets.DEMETERICS_API_KEY }}
+        run: |
+          # Get repo name from GitHub context
+          REPO_NAME="${{ github.event.repository.name }}"
+
+          # Get commit info
+          COMMIT_SHA="${{ github.sha }}"
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          COMMIT_AUTHOR=$(git log -1 --pretty=%an)
+
+          # Get diff (limit to 500 lines to stay within token limits)
+          if git rev-parse HEAD~1 >/dev/null 2>&1; then
+            COMMIT_DIFF=$(git diff HEAD~1 --no-color | head -500)
+          else
+            COMMIT_DIFF=$(git show --no-color | head -500)
+          fi
+
+          # Escape for JSON
+          COMMIT_MSG_ESCAPED=$(echo "$COMMIT_MSG" | jq -Rs .)
+          COMMIT_DIFF_ESCAPED=$(echo "$COMMIT_DIFF" | jq -Rs .)
+
+          # Build system prompt with Demeterics metadata (zero token cost)
+          # These /// comments are parsed by Demeterics for analytics, then stripped
+          SYSTEM_PROMPT="/// APP: GitHub-Commit-Analysis
+          /// FLOW: ${REPO_NAME}
+          /// USER: ${COMMIT_AUTHOR}
+          /// ENV: production
+
+          You are a code review assistant. Analyze the git commit and provide:
+          1. **Summary**: Brief description of what changed
+          2. **Risk Assessment**: Any potential bugs, issues, or breaking changes
+          3. **Security**: Security considerations if applicable
+          4. **Suggestions**: Improvements or best practices
+
+          Be concise and actionable."
+
+          SYSTEM_ESCAPED=$(echo "$SYSTEM_PROMPT" | jq -Rs .)
+
+          # Call Demeterics API with openai/gpt-oss-20b
+          RESPONSE=$(curl -s https://api.demeterics.com/groq/v1/chat/completions \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $DEMETERICS_API_KEY" \
+            -d "{
+              \"model\": \"openai/gpt-oss-20b\",
+              \"messages\": [
+                {\"role\": \"system\", \"content\": $SYSTEM_ESCAPED},
+                {\"role\": \"user\", \"content\": \"Analyze this commit:\\n\\nCommit: ${COMMIT_SHA:0:7}\\nAuthor: ${COMMIT_AUTHOR}\\nMessage: $COMMIT_MSG_ESCAPED\\n\\nDiff:\\n$COMMIT_DIFF_ESCAPED\"}
+              ],
+              \"temperature\": 0.3,
+              \"max_tokens\": 1000
+            }")
+
+          # Extract analysis from response
+          ANALYSIS=$(echo "$RESPONSE" | jq -r '.choices[0].message.content // "Analysis failed"')
+
+          # Check for errors
+          if echo "$RESPONSE" | jq -e '.error' >/dev/null 2>&1; then
+            ERROR_MSG=$(echo "$RESPONSE" | jq -r '.error.message // "Unknown error"')
+            echo "::error::LLM API error: $ERROR_MSG"
+            exit 1
+          fi
+
+          # Output to GitHub Step Summary
+          echo "## Commit Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${COMMIT_SHA:0:7}\` by ${COMMIT_AUTHOR}" >> $GITHUB_STEP_SUMMARY
+          echo "**Message:** ${COMMIT_MSG}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "$ANALYSIS" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "*Powered by [Demeterics](https://demeterics.ai) with openai/gpt-oss-20b*" >> $GITHUB_STEP_SUMMARY
