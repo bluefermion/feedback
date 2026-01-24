@@ -71,15 +71,13 @@ jobs:
 
           # Call Demeterics API with verbose output
           echo "::group::API Call"
-          RESPONSE=$(curl -s -w "\n---HTTP_CODE:%{http_code}---" \
+          HTTP_CODE=$(curl -s -o /tmp/response.json -w "%{http_code}" \
             https://api.demeterics.com/groq/v1/chat/completions \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $DEMETERICS_API_KEY" \
             -d "$JSON_PAYLOAD")
 
-          # Extract HTTP code from response
-          HTTP_CODE=$(echo "$RESPONSE" | grep -o 'HTTP_CODE:[0-9]*' | cut -d: -f2)
-          RESPONSE=$(echo "$RESPONSE" | sed 's/---HTTP_CODE:[0-9]*---$//')
+          RESPONSE=$(cat /tmp/response.json)
 
           echo "HTTP Status: $HTTP_CODE"
           echo "Response keys: $(echo "$RESPONSE" | jq -r 'keys | join(", ")' 2>/dev/null || echo 'Not JSON')"
