@@ -6,7 +6,8 @@
 #   make opencode-start   - Start OpenCode container for self-healing
 
 .PHONY: all build run test clean help setup opencode-start opencode-stop opencode-logs \
-       uat uat-setup uat-headed uat-submit uat-verify uat-full uat-task uat-clean
+       uat uat-setup uat-headed uat-submit uat-verify uat-full uat-task uat-clean \
+       pr branch
 
 # Go parameters
 BINARY_NAME=feedback
@@ -21,7 +22,7 @@ help:
 	@echo "Quick Start:"
 	@echo "  make setup          - Create .env from template"
 	@echo "  make run            - Run Go server locally"
-	@echo "  make uat            - Run UAT tests (requires server running)"
+	@echo "  make pr             - Create PR with AI-generated description"
 	@echo ""
 	@echo "Development:"
 	@echo "  make build          - Build Go binary"
@@ -40,6 +41,11 @@ help:
 	@echo "  make uat-demo       - Run full workflow with visible browser"
 	@echo "  make uat-task TASK=\"...\" - Run custom natural language task"
 	@echo "  make uat-clean      - Clean UAT artifacts"
+	@echo ""
+	@echo "Git Workflow (AI-Assisted):"
+	@echo "  make branch NAME=x  - Create feature/x branch"
+	@echo "  make pr             - Create PR with AI-generated description"
+	@echo "  make pr-auto        - Create PR without preview"
 	@echo ""
 	@echo "OpenCode Container:"
 	@echo "  make opencode-build - Build OpenCode container"
@@ -292,3 +298,27 @@ uat-clean-all: uat-clean
 	@echo "Removing UAT virtual environment..."
 	@rm -rf $(UAT_VENV)
 	@echo "UAT fully cleaned"
+
+# =============================================================================
+# Git Workflow (AI-Assisted)
+# =============================================================================
+
+# Create a feature branch (usage: make branch NAME=feature-name)
+branch:
+	@if [ -z "$(NAME)" ]; then \
+		echo "Usage: make branch NAME=your-feature-name"; \
+		echo "Example: make branch NAME=add-dark-mode"; \
+		exit 1; \
+	fi
+	@git checkout -b "feature/$(NAME)"
+	@echo "Created and switched to branch: feature/$(NAME)"
+
+# Create PR with AI-generated title and description
+pr:
+	@chmod +x scripts/create-pr.sh
+	@scripts/create-pr.sh
+
+# Create PR without preview (auto-create)
+pr-auto:
+	@chmod +x scripts/create-pr.sh
+	@scripts/create-pr.sh --no-preview
