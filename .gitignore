@@ -122,3 +122,4 @@ uat/browser_data/
 # UAT local config
 uat/.env.local
 uat/config.local.yaml
+env-*

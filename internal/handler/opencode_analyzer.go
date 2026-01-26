@@ -113,11 +113,38 @@ func (a *OpenCodeAnalyzer) executeAnalysis(errorID, payloadB64 string) {
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Printf("[%s] OpenCode analysis failed: %v\nOutput: %s", errorID, err, string(output))
+		// Parse JSON response to extract actual OpenCode error
+		var result struct {
+			Success bool   `json:"success"`
+			Error   string `json:"error"`
+			Output  string `json:"output"`
+		}
+
+		if jsonErr := json.Unmarshal(output, &result); jsonErr == nil {
+			// Successfully parsed JSON - log the actual OpenCode output
+			log.Printf("[%s] OpenCode analysis failed: %v", errorID, result.Error)
+			if result.Output != "" {
+				log.Printf("[%s] OpenCode stderr output:\n%s", errorID, result.Output)
+			}
+		} else {
+			// Fallback to raw output if JSON parsing fails
+			log.Printf("[%s] OpenCode analysis failed: %v\nRaw output: %s", errorID, err, string(output))
+		}
 		return
 	}
 
-	log.Printf("[%s] OpenCode analysis completed:\n%s", errorID, string(output))
+	// Parse success response
+	var result struct {
+		Success  bool   `json:"success"`
+		Analysis string `json:"analysis"`
+	}
+
+	if jsonErr := json.Unmarshal(output, &result); jsonErr == nil && result.Analysis != "" {
+		log.Printf("[%s] OpenCode analysis completed:\n%s", errorID, result.Analysis)
+	} else {
+		// Fallback to raw output
+		log.Printf("[%s] OpenCode analysis completed:\n%s", errorID, string(output))
+	}
 }
 
 // WebhookAnalyzer implements ErrorAnalyzer using a webhook endpoint

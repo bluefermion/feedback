@@ -48,19 +48,36 @@ URL=$(echo "$FEEDBACK" | jq -r '.url // ""')
 # 2. AUTHENTICATION & ENVIRONMENT
 # ------------------------------------------------------------------------------
 
+# Logging helper (define early so we can use it)
+LOG_FILE="/var/log/opencode.log"
+log() {
+    # Tee outputs to both stderr (for Docker logs) and a file
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE" >&2
+}
+
+log "=== OpenCode Analysis Starting ==="
+log "Feedback Type: $TYPE"
+log "Feedback Title: $TITLE"
+
 # Ensure the agent has credentials to talk to the LLM API.
 AUTH_FILE="/root/.local/share/opencode/auth.json"
+log "Checking authentication..."
 if [ ! -f "$AUTH_FILE" ] || [ -z "$(cat "$AUTH_FILE" 2>/dev/null | grep -v 'LLM_API_KEY')" ]; then
-    echo "[analyze.sh] Setting up OpenCode auth..." >&2
+    log "Setting up OpenCode auth..."
     if [ -z "$LLM_API_KEY" ]; then
+        log "ERROR: LLM_API_KEY not set"
         echo '{"error": "LLM_API_KEY not set"}'
         exit 1
     fi
     # Run the setup script to generate auth.json from env vars
     /app/setup-auth.sh || {
+        log "ERROR: Failed to setup OpenCode auth"
         echo '{"error": "Failed to setup OpenCode auth"}'
         exit 1
     }
+    log "Auth setup completed"
+else
+    log "Auth file exists and is valid"
 fi
 
 # Locate the agent binary
@@ -132,16 +149,11 @@ case "$MODEL" in
     *) MODEL="groq/$MODEL" ;;
 esac
 
-# Logging helper
-LOG_FILE="/var/log/opencode.log"
-log() {
-    # Tee outputs to both stderr (for Docker logs) and a file
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE" >&2
-}
-
 log "Running OpenCode in $WORKSPACE"
 log "Type: $TYPE, Title: $TITLE"
 log "Model: $MODEL"
+log "LLM Base URL: ${LLM_BASE_URL:-not set}"
+log "Auth file exists: $([ -f "$AUTH_FILE" ] && echo "yes" || echo "no")"
 
 # Write prompt to a temporary file.
 # This avoids issues with shell quoting or argument length limits.
@@ -149,18 +161,32 @@ PROMPT_FILE=$(mktemp)
 printf '%s' "$PROMPT" > "$PROMPT_FILE"
 trap "rm -f '$PROMPT_FILE'" EXIT # Cleanup on exit
 
+log "Prompt length: $(wc -c < "$PROMPT_FILE") bytes"
+log "Prompt preview (first 300 chars):"
+head -c 300 "$PROMPT_FILE" | tee -a "$LOG_FILE" >&2
+echo "" >&2
+log "---"
 log "Starting OpenCode..."
+log "Command: cat $PROMPT_FILE | $OPENCODE_BIN run -m $MODEL"
+log "=== OpenCode Output Below ==="
 
-# Execute the agent!
-# We pipe the prompt file into stdin of the binary.
-# 2>&1 redirects stderr to stdout so we capture all logs in $ANALYSIS.
-ANALYSIS=$(cat "$PROMPT_FILE" | "$OPENCODE_BIN" run -m "$MODEL" 2>&1) || {
+# Execute the agent with real-time logging!
+# Use 'tee' to show output in Docker logs AND capture for JSON response.
+ANALYSIS_FILE=$(mktemp)
+trap "rm -f '$PROMPT_FILE' '$ANALYSIS_FILE'" EXIT
+
+cat "$PROMPT_FILE" | "$OPENCODE_BIN" run -m "$MODEL" 2>&1 | tee "$ANALYSIS_FILE" >&2 || {
     EXIT_CODE=$?
     log "OpenCode exited with code $EXIT_CODE"
+    # Read captured output for JSON response
+    ANALYSIS=$(cat "$ANALYSIS_FILE")
     # Return structured error
     echo "{\"success\": false, \"error\": \"OpenCode exited with code $EXIT_CODE\", \"output\": $(echo "$ANALYSIS" | jq -Rs .)}"
     exit 1
 }
+
+# Read captured output
+ANALYSIS=$(cat "$ANALYSIS_FILE")
 
 # ------------------------------------------------------------------------------
 # 5. RESPONSE FORMATTING
