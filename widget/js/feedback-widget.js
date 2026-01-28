@@ -696,8 +696,18 @@
 
     function renderFeedbackForm() {
         // Template Literals allow easy HTML construction within JS.
-        feedbackModal.innerHTML = `
-            <div class="feedback-modal">
+feedbackModal.innerHTML = `
+    <div class="feedback-modal">
+        <div class="feedback-modal-header">
+            <h2 class="feedback-modal-title">Send Feedback</h2>
+            <button class="feedback-modal-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="feedback-modal-body">
+            <div class="feedback-form-group">
+                <label class="feedback-form-label" for="feedback-user-name">Your Name</label>
+                <input type="text" id="feedback-user-name" class="feedback-form-input"
+                       placeholder="Optional - your name" maxlength="100">
+            </div>
                 <div class="feedback-modal-header">
                     <h2 class="feedback-modal-title">Send Feedback</h2>
                     <button class="feedback-modal-close" aria-label="Close">&times;</button>
@@ -1213,7 +1223,9 @@
             // Collect all data
             const deviceInfo = getDeviceInfo();
             if (config.userEmail) deviceInfo.userEmail = config.userEmail;
-            if (config.userName) deviceInfo.userName = config.userName;
+            const userNameInput = feedbackModal.querySelector('#feedback-user-name');
+            const userName = userNameInput ? userNameInput.value.trim() : '';
+            if (userName) deviceInfo.userName = userName;
 
             const payload = {
                 title,
