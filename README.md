@@ -16,11 +16,11 @@ Think of it as a concept car for software engineering. Every feature you see her
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                    THE AI-AUGMENTED DEVELOPMENT LOOP                     │
-│                                                                          │
+│                    THE AI-AUGMENTED DEVELOPMENT LOOP                    │
+│                                                                         │
 │    User Reports Bug → AI Analyzes → AI Suggests Fix → AI Reviews PR     │
-│         ↑                                                      ↓         │
-│         └──────────── AI Tests the Fix Automatically ←─────────┘         │
+│         ↑                                                      ↓        │
+│         └──────────── AI Tests the Fix Automatically ←─────────┘        │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
