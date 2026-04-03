@@ -74,11 +74,45 @@ widget/js/                → Frontend widget (auto-init)
 
 ## Gotchas
 
+- **NEVER assume LLM model names** — models evolve rapidly (GPT-4 is ancient history). Always check current available models via API or documentation before hardcoding. Use Demeterics API which provides access to latest models.
 - **YOU MUST** validate feedback type: `Bug`, `Feature`, `Improvement`, `Other`
 - Widget color is Material Orange (`#FF9800`)
 - Go 1.22+ panics on duplicate route patterns — check before adding
 - Template-struct mismatches crash at runtime — verify before deploy
 - Check `github.com/patdeg/common` before adding new utilities
+
+## UI Testing Framework (`uitest/`)
+
+Multi-app visual testing with LLM-powered analysis and browser-use actions.
+
+```bash
+cd uitest
+python run_uitest.py                    # Test all apps
+python run_uitest.py --apps demeterics  # Test specific app
+python run_uitest.py --reuse-sessions   # Reuse saved login sessions
+python run_uitest.py --skip-llm         # Screenshots only
+python run_uitest.py --skip-browser-use # Skip browser-use actions
+./clean.sh                              # Remove screenshots/JSON/content (keeps .md reports)
+```
+
+**Architecture:**
+- `config.yaml` — app definitions, pages, viewports, LLM settings
+- `run_uitest.py` — main orchestrator (login, screenshot, analyze, report)
+- `browser_actions.py` — browser-use Agent for interactive page actions
+- `llm_vision_analysis.py` — LLM vision analysis via Demeterics API
+- `screenshot_capture.py` — Playwright screenshot + markdown extraction
+- `report_generator.py` — generates per-app .md/.json reports
+
+**Configured apps:** Demeterics (`demeterics.ai`), Unscarcity (`unscarcity.ai`)
+
+**Environment:**
+| Variable | Purpose |
+|----------|---------|
+| `DEMETERICS_API_KEY` | LLM analysis + browser-use actions |
+| `LLM_BROWSER_USE_MODEL` | Override model for browser-use (default: llama-4-scout) |
+| `LLM_API_BASE` | Override API base URL |
+
+**Browser-use actions:** Pages with `browser_use_action` in config.yaml get an interactive test via browser-use Agent + langchain-openai through the Demeterics proxy.
 
 ## Deployment
 
