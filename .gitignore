@@ -82,7 +82,7 @@ screenshots/
 config/opencode-auth.json
 
 # ===========================================
-# UAT (User Acceptance Testing)
+# UAT (User Acceptance Testing) — legacy
 # ===========================================
 
 # Python
@@ -124,3 +124,51 @@ uat/browser_data/
 # UAT local config
 uat/.env.local
 uat/config.local.yaml
+
+# ===========================================
+# UI Testing (uitest/) — multi-app visual testing
+# ===========================================
+
+# Python
+uitest/__pycache__/
+uitest/*.py[cod]
+uitest/*$py.class
+uitest/.Python
+uitest/venv/
+uitest/env/
+uitest/.venv/
+uitest/.deps_installed
+
+# Screenshots (can be large, regenerated)
+uitest/screenshots/*.png
+uitest/screenshots/*.jpg
+uitest/screenshots/*.jpeg
+
+# Reports (generated output)
+uitest/reports/*.json
+uitest/reports/*.md
+uitest/reports/*.html
+
+# Content (extracted markdown)
+uitest/content/*.md
+
+# Keep directory structure
+!uitest/screenshots/.gitkeep
+!uitest/reports/.gitkeep
+!uitest/content/.gitkeep
+
+# Browser state (contains session cookies - sensitive)
+uitest/browser_state/
+
+# Playwright
+uitest/test-results/
+uitest/playwright-report/
+uitest/.playwright/
+
+# Browser-Use
+uitest/.browser-use/
+uitest/browser_data/
+
+# UI test local config
+uitest/.env.local
+uitest/config.local.yaml

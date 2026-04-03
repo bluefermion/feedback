@@ -1,0 +1,93 @@
+# Multi-App UI Testing — Example Configuration
+#
+# Copy this file to config.yaml and customize:
+#   cp config.yaml.example config.yaml
+#
+# config.yaml is gitignored — safe for real URLs and app configs.
+#
+# Page flags:
+#   incognito: true    — test as a visitor (no cookies/session)
+#   mobile_critical: true — flag for mobile-first importance
+#   browser_use_action: "..." — optional browser-use AI action to run
+
+settings:
+  viewports:
+    desktop: { width: 1920, height: 1080 }
+    laptop: { width: 1366, height: 768 }
+    mobile: { width: 375, height: 667 }
+  llm:
+    # Env vars LLM_API_BASE and LLM_MODEL override these
+    api_base: "https://api.demeterics.com"
+    model: "meta-llama/llama-4-scout-17b-16e-instruct"
+    max_tokens: 8000
+    temperature: 0.1
+  browser:
+    timeout: 30000
+    wait_after_load: 2
+
+# ─── Example: local dev app (no login) ───────────────────────────
+apps:
+  feedback:
+    name: "Feedback Service (local)"
+    base_url: "http://localhost:8080"
+    login_url: null
+    login_required: false
+    pages:
+      demo:
+        path: "/demo"
+        title: "Demo Page"
+        purpose: "Showcase the feedback widget"
+        objectives:
+          - Feedback button visible (orange floating button)
+          - Widget opens on click with form fields
+          - Page layout is clean and instructional
+        mobile_critical: true
+
+      feedback_list:
+        path: "/feedback"
+        title: "Feedback List"
+        purpose: "Admin view of all submitted feedback"
+        objectives:
+          - Table displays feedback entries with type, message, date
+          - Entries are clickable to view detail
+        browser_use_action: "Click on the first feedback entry and verify the detail page loads"
+
+  # ─── Example: authenticated app (illustrative — not real) ─────
+  # Uncomment or copy and adjust:
+  #
+  # myapp:
+  #   name: "My SaaS App"
+  #   base_url: "https://app.example.com"
+  #   login_url: "https://app.example.com/login"
+  #   login_required: true
+  #   pages:
+  #     landing:
+  #       path: "/"
+  #       title: "Landing Page"
+  #       purpose: "Convert visitors to signups"
+  #       incognito: true  # Visit as logged-out user (avoids redirect to dashboard)
+  #       objectives:
+  #         - Value proposition clear within 3 seconds
+  #         - CTA button above the fold
+  #         - Trust signals visible (logos, testimonials)
+  #       mobile_critical: true
+  #     pricing:
+  #       path: "/pricing"
+  #       title: "Pricing Page"
+  #       purpose: "Display plans and pricing"
+  #       incognito: true  # Public page — test as visitor
+  #       objectives:
+  #         - All pricing tiers visible
+  #         - Feature comparison is clear
+  #         - CTA buttons prominent
+  #       mobile_critical: true
+  #     dashboard:
+  #       path: "/dashboard"
+  #       title: "User Dashboard"
+  #       purpose: "Main workspace after login"
+  #       # No incognito — needs authenticated session
+  #       objectives:
+  #         - Key metrics displayed
+  #         - Navigation intuitive
+  #         - No console errors
+  #       browser_use_action: "Click the first item in the main list and verify it opens"
