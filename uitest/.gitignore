@@ -1,0 +1,26 @@
+# Output directories (keep the dirs via .gitkeep)
+screenshots/*
+!screenshots/.gitkeep
+content/*
+!content/.gitkeep
+reports/*
+!reports/.gitkeep
+browser_state/*
+!browser_state/.gitkeep
+
+# Local config (may contain real URLs — use config.yaml.example as template)
+config.yaml
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Playwright
+test-results/
+playwright-report/
+.playwright/
+
+# Environment
+.env

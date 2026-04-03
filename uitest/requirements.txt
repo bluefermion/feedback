@@ -1,0 +1,11 @@
+# Multi-App UI Testing Framework
+playwright>=1.40.0
+browser-use>=0.2.0
+beautifulsoup4>=4.12.0
+markdownify>=0.11.6
+Pillow>=10.0.0
+aiohttp>=3.9.0
+PyYAML>=6.0.1
+python-dotenv>=1.0.0
+rich>=13.7.0
+langchain-openai>=0.3.0
