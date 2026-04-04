@@ -172,3 +172,6 @@ uitest/browser_data/
 # UI test local config
 uitest/.env.local
 uitest/config.local.yaml
+
+# Claude Code local settings (contains server names, permissions, SSH paths)
+.claude/settings.local.json
