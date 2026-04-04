@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 """Capture screenshots of a URL at mobile, laptop, and desktop viewports.
 
+Also extracts the page HTML and a cleaned markdown equivalent.
+
 Usage:
     screenshot-capture.py <url> [--output-dir DIR] [--viewports mobile,laptop,desktop]
                                 [--wait SECONDS] [--full-page] [--no-optimize]
-                                [--session NAME]
+                                [--no-content] [--session NAME]
 
-Outputs screenshot file paths to stdout, one per line, as:
+Outputs file paths to stdout, one per line, as:
+    html: /path/to/page.html
+    markdown: /path/to/page.md
     viewport_name: /path/to/screenshot.png
 """
 
@@ -17,6 +21,8 @@ import tempfile
 from pathlib import Path
 from urllib.parse import urlparse
 
+from bs4 import BeautifulSoup
+from markdownify import markdownify as md
 from PIL import Image
 from playwright.async_api import async_playwright
 
@@ -85,9 +91,39 @@ def find_session(url: str, session_name: str = None) -> str | None:
     return None
 
 
+def html_to_markdown(html_content: str, url: str) -> str:
+    """Convert HTML to clean markdown, stripping scripts/styles/noise."""
+    soup = BeautifulSoup(html_content, "html.parser")
+
+    # Remove non-content elements
+    for tag in soup(["script", "style", "noscript", "svg", "iframe"]):
+        tag.decompose()
+
+    # Try to find main content area
+    main_content = None
+    for selector in ["main", "article", '[role="main"]', "#content", ".content"]:
+        main_content = soup.select_one(selector)
+        if main_content:
+            break
+
+    target = main_content if main_content else soup.body
+    if not target:
+        target = soup
+
+    markdown = md(str(target), heading_style="ATX", strip=["img"])
+    # Clean up excessive whitespace
+    lines = [line.rstrip() for line in markdown.splitlines()]
+    cleaned = "\n".join(lines)
+    while "\n\n\n" in cleaned:
+        cleaned = cleaned.replace("\n\n\n", "\n\n")
+
+    return f"# Page Content\n\nURL: {url}\n\n{cleaned}"
+
+
 async def capture(url: str, output_dir: str, viewports: dict,
                   wait_seconds: float = 2.0, full_page: bool = True,
-                  optimize: bool = True, session: str = None) -> dict:
+                  optimize: bool = True, session: str = None,
+                  extract_content: bool = True) -> dict:
     """Capture screenshots at specified viewports. Returns {viewport: path}."""
     results = {}
     output = Path(output_dir)
@@ -122,6 +158,18 @@ async def capture(url: str, output_dir: str, viewports: dict,
         except Exception:
             # Fallback to domcontentloaded if networkidle times out
             await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+
+        # Extract page content once (DOM is viewport-independent)
+        if extract_content:
+            raw_html = await page.content()
+            html_path = str(output / "page.html")
+            Path(html_path).write_text(raw_html, encoding="utf-8")
+            results["html"] = html_path
+
+            markdown_text = html_to_markdown(raw_html, url)
+            md_path = str(output / "page.md")
+            Path(md_path).write_text(markdown_text, encoding="utf-8")
+            results["markdown"] = md_path
 
         for name, dims in viewports.items():
             await page.set_viewport_size(dims)
@@ -159,6 +207,8 @@ def main():
                         help="Capture only the visible viewport, not full page")
     parser.add_argument("--no-optimize", action="store_true",
                         help="Skip LLM optimization")
+    parser.add_argument("--no-content", action="store_true",
+                        help="Skip HTML and markdown extraction")
     parser.add_argument("--session", default=None,
                         help="Session name to load (default: auto-detect by domain)")
     args = parser.parse_args()
@@ -186,6 +236,7 @@ def main():
 
     full_page = not args.viewport_only
     optimize = not args.no_optimize
+    extract_content = not args.no_content
 
     results = asyncio.run(capture(
         url=args.url,
@@ -195,11 +246,16 @@ def main():
         full_page=full_page,
         optimize=optimize,
         session=args.session,
+        extract_content=extract_content,
     ))
 
-    # Output paths
-    for viewport_name, path in results.items():
-        print(f"{viewport_name}: {path}")
+    # Output content paths first, then screenshots
+    for key in ("html", "markdown"):
+        if key in results:
+            print(f"{key}: {results[key]}")
+    for key, path in results.items():
+        if key not in ("html", "markdown"):
+            print(f"{key}: {path}")
 
 
 if __name__ == "__main__":

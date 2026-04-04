@@ -1,7 +1,7 @@
 ---
 name: screenshot
 description: Capture screenshots of a URL at mobile (375px), laptop (1366px), and desktop (1920px) viewports using Playwright. Use when you need to see the rendered UI of a web page to evaluate design, debug layout issues, or verify changes.
-argument-hint: "<url> [--viewports mobile,laptop,desktop] [--viewport-only] [--wait N] [--session NAME]"
+argument-hint: "<url> [--viewports mobile,laptop,desktop] [--viewport-only] [--wait N] [--no-content] [--session NAME]"
 allowed-tools: Bash, Read
 ---
 
@@ -11,7 +11,7 @@ Capture and view rendered screenshots of: **$ARGUMENTS**
 
 ## Instructions
 
-Use the Playwright-based screenshot tool to capture the URL at multiple viewport sizes, then view each screenshot with the Read tool.
+Use the Playwright-based screenshot tool to capture the URL at multiple viewport sizes, extract page content (HTML + markdown), then review everything with the Read tool.
 
 ### Step 1: Parse arguments
 
@@ -21,11 +21,12 @@ Extract from `$ARGUMENTS`:
 - **--viewport-only**: capture only the visible viewport, not the full scrollable page
 - **--wait N**: seconds to wait after load (default: 2, increase for JS-heavy pages)
 - **--no-optimize**: skip image optimization for LLM
+- **--no-content**: skip HTML and markdown extraction (screenshots only)
 - **--session NAME**: explicitly specify a saved session name (default: auto-detect by domain)
 
 If the URL doesn't start with `http`, prepend `https://`.
 
-### Step 2: Capture screenshots
+### Step 2: Capture screenshots + content
 
 ```bash
 ~/.claude/tools/screenshot-venv/bin/python ~/.claude/tools/screenshot-capture.py "<url>" \
@@ -33,23 +34,33 @@ If the URL doesn't start with `http`, prepend `https://`.
   --wait 2
 ```
 
-The script outputs one line per viewport:
+The script outputs one line per file:
 ```
+html: /tmp/claude-screenshots-XXXX/page.html
+markdown: /tmp/claude-screenshots-XXXX/page.md
 mobile: /tmp/claude-screenshots-XXXX/mobile_375x667.png
 laptop: /tmp/claude-screenshots-XXXX/laptop_1366x768.png
 desktop: /tmp/claude-screenshots-XXXX/desktop_1920x1080.png
 ```
 
-### Step 3: View all screenshots
+### Step 3: Read extracted content
+
+1. **Read the markdown file** (`page.md`) — this gives you the page's textual content and structure in a token-efficient format. Use this to understand what's on the page, check copy, verify navigation links, assess content hierarchy.
+
+2. **Read the HTML file** (`page.html`) only if you need to inspect the actual markup — e.g., checking semantic HTML, meta tags, accessibility attributes, CSS classes, or diagnosing rendering issues. For large pages, read only relevant sections using offset/limit.
+
+### Step 4: View all screenshots
 
 Use the **Read** tool to view each screenshot file path from the output. Read ALL viewport screenshots so you can see the full responsive behavior.
 
-### Step 4: Analyze what you see
+### Step 5: Analyze what you see
 
-After viewing the screenshots, provide a brief UI assessment covering:
-- **Layout**: Does it respond well across viewports?
+After reviewing content and screenshots, provide a brief assessment covering:
+- **Content**: Structure, hierarchy, completeness (from markdown)
+- **Code quality**: Semantic HTML, accessibility, meta tags (from HTML, if inspected)
+- **Layout**: Responsive behavior across viewports (from screenshots)
 - **Readability**: Text size, contrast, spacing
-- **Issues**: Anything broken, overlapping, or cut off
+- **Issues**: Anything broken, overlapping, missing, or cut off
 - **Suggestions**: Concrete improvements if asked
 
 ## Viewport Reference
@@ -67,6 +78,7 @@ After viewing the screenshots, provide a brief UI assessment covering:
 - **Above-the-fold only**: `--viewport-only` (no full-page scroll)
 - **SPA/JS-heavy sites**: `--wait 5` (longer wait for client rendering)
 - **Custom breakpoint**: `--viewports 768x1024` (e.g., tablet)
+- **Screenshots only** (no content extraction): `--no-content`
 
 ## Authentication
 
@@ -79,19 +91,9 @@ Sessions saved via `/screenshot-login` are **automatically loaded** when the URL
 
 **Stderr** will show `session: /path/to/session.json` when a session is loaded.
 
-## Setup
-
-Requires a one-time setup of the Python venv and Playwright:
-
-```bash
-python3 -m venv ~/.claude/tools/screenshot-venv
-~/.claude/tools/screenshot-venv/bin/pip install playwright pillow
-~/.claude/tools/screenshot-venv/bin/playwright install chromium
-~/.claude/tools/screenshot-venv/bin/playwright install-deps chromium
-```
-
 ## Troubleshooting
 
 - If the page requires authentication, screenshots will show the login page. Tell the user to run `/screenshot-login <login-url>` first.
 - If the page fails to load, the script will retry with `domcontentloaded` instead of `networkidle`.
 - Images are automatically optimized for LLM vision (max 33MP, max 3.5MB). Use `--no-optimize` to get raw screenshots.
+- If HTML extraction fails or the page is mostly JS-rendered, the HTML may contain only a shell. Check the markdown output — if it's empty/minimal, the page likely needs `--wait` increased.
