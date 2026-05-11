@@ -170,6 +170,12 @@ case "$CREATE_PR" in
         echo ""
         echo -e "${GREEN}PR created successfully!${NC}"
         echo -e "URL: ${BLUE}$PR_URL${NC}"
+        
+        # Notify via ntfy.sh if topic is configured
+        if [ -n "${NTFY_TOPIC:-}" ]; then
+            PR_NUM=$(echo "$PR_URL" | grep -oE '[0-9]+$')
+            curl -sf -d "PR #$PR_NUM ready for review: $PR_URL"                 -H "Title: $REPO_NAME: PR Ready"                 -H "Tags: hammer_and_wrench,robot"                 -H "Click: $PR_URL"                 -H "Priority: high"                 "https://ntfy.sh/$NTFY_TOPIC" >/dev/null 2>&1                 && echo -e "${GREEN}Notification sent to ntfy.sh/$NTFY_TOPIC${NC}"                 || echo -e "${YELLOW}ntfy.sh notification failed (non-fatal)${NC}"
+        fi
         ;;
     [Ee]*)
         echo -e "${YELLOW}Opening editor...${NC}"
