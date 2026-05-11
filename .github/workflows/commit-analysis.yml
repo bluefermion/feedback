@@ -23,13 +23,14 @@ jobs:
           REPO_NAME: ${{ github.event.repository.name }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GH_TOKEN: ${{ github.token }}
+          # Pass attacker-controlled PR fields via env, not ${{ }} interpolation,
+          # so they cannot break out of the shell context.
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         shell: bash
         run: |
-          # Get PR info
-          PR_TITLE="${{ github.event.pull_request.title }}"
-          PR_AUTHOR="${{ github.event.pull_request.user.login }}"
-          BASE_SHA="${{ github.event.pull_request.base.sha }}"
-          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
 
           # Get diff between base and head (limit to 500 lines)
           # Use || true to prevent SIGPIPE (exit 141) when head closes pipe early
