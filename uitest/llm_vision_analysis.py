@@ -17,7 +17,7 @@ class LLMVisionAnalyzer:
     def __init__(self):
         self.api_base = os.environ.get("LLM_API_BASE", "https://api.demeterics.com")
         self.api_key = os.environ.get("DEMETERICS_API_KEY", "")
-        self.model = os.environ.get("LLM_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
+        self.model = os.environ.get("LLM_MODEL", "qwen/qwen3.6-27b")
         self.max_tokens = int(os.environ.get("LLM_MAX_TOKENS", "8000"))
         self.temperature = float(os.environ.get("LLM_TEMPERATURE", "0.1"))
 

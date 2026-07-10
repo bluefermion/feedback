@@ -47,7 +47,7 @@ async def run_browser_action(
             "errors": ["Set DEMETERICS_API_KEY env var"],
         }
 
-    model_name = os.environ.get("LLM_BROWSER_USE_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
+    model_name = os.environ.get("LLM_BROWSER_USE_MODEL", "qwen/qwen3.6-27b")
     api_base = os.environ.get("LLM_API_BASE", "https://api.demeterics.com")
     openai_base_url = f"{api_base}/api/groq/v1"
 

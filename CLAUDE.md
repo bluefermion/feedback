@@ -109,7 +109,7 @@ python run_uitest.py --skip-browser-use # Skip browser-use actions
 | Variable | Purpose |
 |----------|---------|
 | `DEMETERICS_API_KEY` | LLM analysis + browser-use actions |
-| `LLM_BROWSER_USE_MODEL` | Override model for browser-use (default: llama-4-scout) |
+| `LLM_BROWSER_USE_MODEL` | Override model for browser-use (default: qwen/qwen3.6-27b) |
 | `LLM_API_BASE` | Override API base URL |
 
 **Browser-use actions:** Pages with `browser_use_action` in config.yaml get an interactive test via browser-use Agent + langchain-openai through the Demeterics proxy.

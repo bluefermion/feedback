@@ -18,7 +18,7 @@ settings:
   llm:
     # Env vars LLM_API_BASE and LLM_MODEL override these
     api_base: "https://api.demeterics.com"
-    model: "meta-llama/llama-4-scout-17b-16e-instruct"
+    model: "qwen/qwen3.6-27b"
     max_tokens: 8000
     temperature: 0.1
   browser:
