@@ -6,7 +6,7 @@
 
 [llm]
 # Model to use for code generation
-# Examples: qwen/qwen3-32b, llama-3.3-70b-versatile, claude-opus-4-5-20251101
+# Examples: anthropic/claude-haiku-4-5, qwen/qwen3-32b, openai/gpt-oss-120b
 model = "${OPENCODE_MODEL}"
 
 # Provider configuration (populated from LLM_BASE_URL)

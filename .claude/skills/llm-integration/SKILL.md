@@ -16,8 +16,8 @@ The feedback service supports optional LLM-powered features:
 ```bash
 # LLM Analysis (optional)
 LLM_API_KEY=your-api-key
-LLM_BASE_URL=https://api.groq.com/openai/v1
-LLM_MODEL=llama-3.3-70b-versatile
+LLM_BASE_URL=https://api.demeterics.com/chat/v1
+LLM_MODEL=anthropic/claude-haiku-4-5
 
 # OpenCode Self-Healing (optional)
 OPENCODE_ENABLED=true

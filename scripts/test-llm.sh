@@ -17,7 +17,7 @@ if [ -z "$LLM_API_KEY" ]; then
 fi
 
 API_URL="${LLM_BASE_URL:-https://api.demeterics.com/chat/v1}/chat/completions"
-MODEL="${LLM_MODEL:-groq/llama-3.3-70b-versatile}"
+MODEL="${LLM_MODEL:-anthropic/claude-haiku-4-5}"
 
 echo "Testing LLM API..."
 echo "URL: $API_URL"

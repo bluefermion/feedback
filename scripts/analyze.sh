@@ -142,10 +142,12 @@ Instructions:
 cd "$WORKSPACE"
 
 # Determine the LLM model to use.
-MODEL="${LLM_MODEL:-llama-3.3-70b-versatile}"
-# Ensure proper provider prefix (e.g., "groq/") required by the tool.
+MODEL="${LLM_MODEL:-anthropic/claude-haiku-4-5}"
+# Ensure a provider prefix, which the tool requires. Match ANY provider, not just
+# groq/ — the old test prefixed "anthropic/claude-haiku-4-5" into the nonexistent
+# "groq/anthropic/claude-haiku-4-5".
 case "$MODEL" in
-    groq/*) ;; # Already has prefix
+    */*) ;; # already carries a provider prefix
     *) MODEL="groq/$MODEL" ;;
 esac
 

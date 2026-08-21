@@ -144,8 +144,8 @@ opencode-start: opencode-build
 			--name $(CONTAINER_NAME) \
 			-e LLM_API_KEY="$$LLM_API_KEY" \
 			-e GROQ_API_KEY="$$LLM_API_KEY" \
-			-e LLM_BASE_URL="$${LLM_BASE_URL:-https://api.groq.com/openai/v1}" \
-			-e LLM_MODEL="$${LLM_MODEL:-llama-3.3-70b-versatile}" \
+			-e LLM_BASE_URL="$${LLM_BASE_URL:-https://api.demeterics.com/chat/v1}" \
+			-e LLM_MODEL="$${LLM_MODEL:-anthropic/claude-haiku-4-5}" \
 			-e GITHUB_TOKEN="$$GITHUB_TOKEN" \
 			-v "$$REPO_DIR:/workspace:rw" \
 			opencode-selfhealing:latest
@@ -169,7 +169,7 @@ opencode-shell:
 
 opencode-test:
 	@echo "Testing OpenCode analysis..."
-	@echo "Model: $$(. ./.env && echo $${LLM_MODEL:-llama-3.3-70b-versatile})"
+	@echo "Model: $$(. ./.env && echo $${LLM_MODEL:-anthropic/claude-haiku-4-5})"
 	@# Test directly in container with base64-encoded JSON
 	@TEST_JSON='{"title":"Test bug","description":"The submit button does not work","type":"bug","url":"http://localhost/test"}' && \
 		TEST_B64=$$(echo "$$TEST_JSON" | base64 -w0) && \
