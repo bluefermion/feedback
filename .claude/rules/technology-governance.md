@@ -85,7 +85,7 @@ files anywhere in the tree). The pattern that keeps it safe:
   Run it in CI or after any change to `Dockerfile.selfhealing` /
   `scripts/guard/**`.
 
-See README "Guardrails You Can't Talk Your Way Past" for the full rationale.
+See README "The Killswitch" for the full rationale.
 
 ## HTMX
 
