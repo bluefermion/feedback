@@ -42,6 +42,7 @@ NEVER_TOUCH=(
     "Makefile"
     "config/opencode.toml.template"
     "config/opencode-auth.json.template"
+    "KILLSWITCH"
     ".env"
     ".env.*"
     "*.pem"

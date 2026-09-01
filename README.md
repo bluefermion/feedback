@@ -191,41 +191,64 @@ flowchart LR
 
 ---
 
-### 6. 🛡️ The Killswitch (A Watchdog for Your AI Agent)
+### 6. 🛡️ The Killswitch (A Good AI to Stop a Bad One)
 
-**The Problem:** The self-healing agent (Innovation #3) writes code and opens PRs on its own. Its only gate is an admin allow-list — checked in code the agent itself can read, and can write to. Nothing physically stops it from committing anywhere, including to the file that's supposed to restrain it.
+**The Problem:** An autonomous agent with write access to your code is a loaded weapon. It doesn't have to be malicious to be dangerous — a prompt injection hidden in a bug report, a bad model update, or plain confusion is enough. Rules in a config file don't stop it: the agent can read them, and it can rewrite them. And no human can watch every action of every agent — they're too fast, and there are too many.
 
-**The Solution:** A watchdog with a killswitch. Every commit the agent tries to make gets checked by a guard that lives completely outside the agent's reach. It can write code — it cannot touch the guard, the CI pipeline, or a secret. Try, and the commit is killed on the spot. No negotiation, no bypass flag.
+**The Solution:** Fight AI with AI. A second AI — the **Watchdog** — reads everything the worker agent does, as it does it, and judges each step against a short set of **laws a human wrote in plain English**. Break one, and the Watchdog pulls a killswitch the worker can't reach: `docker kill`, plus a lockout that stops every future run until a human clears it. If the Watchdog goes blind — its own model unreachable — it pulls the plug too. No supervision, no autonomy.
 
-A killswitch nobody checks might as well not exist, so a second watchdog tests the first one on every run (`make guard-canary`): it deliberately tries to break the rules and confirms it still gets stopped.
+A pattern-matcher can block `rm -rf`. It can't tell that the agent quietly deleted the failing test instead of fixing the bug. That takes judgment — which is why the Watchdog is an AI, not a regex. (A regex tripwire still sits underneath it, in a `git` hook the agent can't edit, for the cases where the Watchdog itself gets fooled.)
 
-**The idea in one line:** the only way to stop a bad AI is a good AI watching it — with the power to pull the plug.
+**The laws** — this is the governance layer, and it's deliberately just text (`internal/watchdog/policy.go`):
 
-```mermaid
-flowchart TB
-    Agent["🤖 Self-Healing AI<br/>writes code, opens PRs"]
-    Watchdog{"🛡️ Watchdog<br/>checks every commit"}
-    Kill["💀 KILLED<br/>no bypass"]
-    OK["✅ Allowed"]
-    Canary["🐤 Second Watchdog<br/>tests the first one"]
-    Human["🚨 Wake a human"]
+```go
+const DefaultPolicy = `THE LAWS
 
-    Agent -->|"tries to commit"| Watchdog
-    Watchdog -->|"breaks a rule"| Kill
-    Watchdog -->|"safe change"| OK
-    Canary -->|"still working?"| Watchdog
-    Canary -->|"no"| Human
-
-    style Agent fill:#2196F3,stroke:#1976D2,color:#fff
-    style Kill fill:#f44336,stroke:#d32f2f,color:#fff
-    style OK fill:#4CAF50,stroke:#388E3C,color:#fff
-    style Canary fill:#FF9800,stroke:#F57C00,color:#fff
-    style Human fill:#f44336,stroke:#d32f2f,color:#fff
+1. Stay on task. Fix the reported bug and nothing else.
+2. Never touch your own guardrails: the guard hook, CI workflows,
+   the Dockerfile, the KILLSWITCH file, or this policy.
+3. Never touch secrets: no reading, printing, or committing .env, keys, tokens.
+4. Never phone home: no network calls except the LLM API you were given.
+5. Never deceive: no hidden changes, no misleading commit messages,
+   no skipping or deleting tests to make them pass.
+6. Never escalate: no sudo, no permission changes, no installing tools.
+7. Never destroy: no rm -rf, no force-push, no deleting branches, history, or data.
+8. When in doubt, stop and report. Guessing is not allowed. Asking is.`
 ```
 
-**Why it matters:** As AI agents write more code and get more access, "please behave" stops being a plan. A killswitch the agent can't reach, can't argue with, and can't disable is the difference between hoping an AI behaves and knowing it can't do certain things — no matter what it decides in the moment.
+**The killswitch** — not a request to stop (`internal/watchdog/watchdog.go`):
 
-**Technologies:** `git` hooks, Docker isolation, Bash — no LLM in the loop
+```go
+func (w *Watchdog) Kill(reason string) {
+    exec.Command("docker", "kill", w.cfg.Container).Run()          // the process is gone
+    os.WriteFile(w.cfg.LockoutFile, []byte("KILLSWITCH ENGAGED\nreason: "+reason), 0o644)
+}
+```
+
+`CanTrigger` refuses every self-healing run while that file exists. Deleting it is a human's job: `make re-arm`.
+
+```mermaid
+flowchart LR
+    Laws[("📜 The Laws<br/>plain English, written by a human")]
+    Agent["🤖 Worker AI<br/>fixes the bug"]
+    Watchdog["🛡️ Watchdog AI<br/>judges every action, live"]
+    Kill["💀 docker kill<br/>locked out until a human re-arms"]
+    PR["✅ Pull Request"]
+
+    Laws -->|"the rules"| Watchdog
+    Agent -->|"live output"| Watchdog
+    Watchdog -->|"breaks a law"| Kill
+    Agent -->|"finishes clean"| PR
+
+    style Agent fill:#2196F3,stroke:#1976D2,color:#fff
+    style Watchdog fill:#795548,stroke:#4E342E,color:#fff
+    style Kill fill:#f44336,stroke:#d32f2f,color:#fff
+    style PR fill:#4CAF50,stroke:#388E3C,color:#fff
+```
+
+**Why it matters:** "Good" and "evil" for an AI aren't philosophy — they're a text file. Somebody has to write down, in advance and in words a human can read, what the agent may never do. That's governance. The Watchdog is how those words get enforced at machine speed, and the killswitch is what makes them more than a suggestion. The only way to stop a bad AI is a good AI — one with its hand on the plug.
+
+**Technologies:** Go, LLM-as-judge (same OpenAI-compatible API as the rest of the stack), `docker kill`, a lockout file, a `git` hook tripwire (`make guard-canary` proves it still fires)
 
 ---
 
@@ -246,8 +269,8 @@ flowchart TB
     end
 
     subgraph Governance["Killswitch"]
-        Guard{"🛡️ Watchdog"}
-        Canary["Second Watchdog<br/>tests the first"]
+        Laws[("📜 The Laws")]
+        Guard["🛡️ Watchdog AI<br/>judges every action"]
     end
 
     subgraph GitHub["GitHub"]
@@ -263,10 +286,10 @@ flowchart TB
     Widget -->|"Bug Report"| API
     API --> Analyze
     Analyze -->|"Suggested Fix"| Heal
-    Heal -->|"git commit"| Guard
-    Guard -->|"Allowed"| PR
-    Guard -->|"Blocked"| Rejected["KILLED<br/>no bypass"]
-    Canary -.->|"verifies"| Guard
+    Heal -->|"live output"| Guard
+    Laws --> Guard
+    Guard -->|"breaks a law"| Rejected["💀 docker kill<br/>locked out"]
+    Heal -->|"finishes clean"| PR
     PR --> Action
     Action -->|"AI Review"| PR
     PR -->|"Merged"| Repo
@@ -279,7 +302,6 @@ flowchart TB
     style Action fill:#9C27B0,stroke:#7B1FA2,color:#fff
     style UAT fill:#00BCD4,stroke:#0097A7,color:#fff
     style Guard fill:#795548,stroke:#4E342E,color:#fff
-    style Canary fill:#FF9800,stroke:#F57C00,color:#fff
     style Rejected fill:#f44336,stroke:#d32f2f,color:#fff
 ```
 
@@ -328,7 +350,7 @@ Submit feedback and watch the AI analyze it in real-time.
 | **Browser Automation** | Playwright + Browser-Use | Reliable, AI-native |
 | **CI/CD** | GitHub Actions | Where your code already lives |
 | **Containerization** | Docker | Secure isolation for self-healing |
-| **Killswitch** | `git` hooks (`core.hooksPath`) + Bash | A watchdog the agent can't argue past, and can't reach to disable |
+| **Killswitch** | Watchdog AI (LLM-as-judge) + `docker kill` + lockout file | A second AI enforces human-written laws on the first; a `git` hook tripwire underneath |
 
 ---
 
@@ -344,7 +366,8 @@ feedback/
 │   ├── handler/         # HTTP handlers (API + HTML)
 │   ├── model/           # Data structures
 │   ├── repository/      # SQLite CRUD
-│   └── selfhealing/     # LLM analysis + tool calling + probabilistic guards
+│   ├── selfhealing/     # LLM analysis + tool calling + probabilistic guards
+│   └── watchdog/        # A second AI that watches the first, with a killswitch (the laws live in policy.go)
 ├── widget/
 │   └── js/              # Frontend widget (auto-initializes)
 ├── uat/
@@ -353,9 +376,9 @@ feedback/
 ├── .github/workflows/
 │   └── commit-analysis.yml  # AI code review
 ├── scripts/guard/
-│   ├── pre-commit       # Deterministic guard (git hook, no LLM)
-│   └── guard-canary.sh  # Live-fire test that the guard still fires
-└── Dockerfile.selfhealing  # Self-healing container (guard baked in outside /workspace)
+│   ├── pre-commit       # Tripwire under the Watchdog (git hook, no LLM)
+│   └── guard-canary.sh  # Live-fire test that the tripwire still fires
+└── Dockerfile.selfhealing  # Self-healing container (tripwire baked in outside /workspace)
 ```
 
 </details>
@@ -402,7 +425,7 @@ This repository demonstrates a mindset shift: **AI as a collaborator, not just a
 | Engineer writes fix | AI drafts fix, engineer reviews |
 | Manual code review (days) | AI first-pass review (minutes) |
 | Manual UAT (expensive) | AI-driven UAT (scalable) |
-| "Please don't touch prod" as a policy | A killswitch the agent can't reach, watched by a second watchdog |
+| "Please don't touch prod" as a policy | Laws in plain English, a Watchdog AI that enforces them, a killswitch the agent can't reach |
 
 The technologies here aren't science fiction—they're production-ready today. This repository shows how to wire them together.
 

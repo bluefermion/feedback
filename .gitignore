@@ -81,6 +81,9 @@ screenshots/
 *.generated.go
 config/opencode-auth.json
 
+# Watchdog killswitch lockout (runtime state; a human clears it with `make re-arm`)
+/KILLSWITCH
+
 # ===========================================
 # UAT (User Acceptance Testing) — legacy
 # ===========================================

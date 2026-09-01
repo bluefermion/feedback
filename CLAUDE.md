@@ -80,7 +80,7 @@ widget/js/                → Frontend widget (auto-init)
 - Go 1.22+ panics on duplicate route patterns — check before adding
 - Template-struct mismatches crash at runtime — verify before deploy
 - Check `github.com/patdeg/common` before adding new utilities
-- Self-healing's `opencode` mode has TWO independent gates, not one: the `ADMIN_EMAILS` check in `internal/selfhealing/trigger.go`, and a deterministic `git` hook (`scripts/guard/pre-commit`) baked into `Dockerfile.selfhealing` outside the writable `/workspace` mount. Run `make guard-canary` after touching `Dockerfile.selfhealing`, `scripts/analyze.sh`, or anything under `scripts/guard/` — it live-fire-tests that the guard still blocks/allows correctly instead of silently no-op'ing (see README "The Killswitch")
+- Self-healing's `opencode` mode is supervised by a **Watchdog** (`internal/watchdog`): a second LLM reads the agent's live stderr and judges it against the laws in `internal/watchdog/policy.go`; on a violation (or if its own model is unreachable — it fails closed) it runs `docker kill` and writes `KILLSWITCH`. `CanTrigger` refuses ALL self-healing while that file exists — `make re-arm` clears it. Under the Watchdog sits a `git` hook tripwire (`scripts/guard/pre-commit`, baked into `Dockerfile.selfhealing` outside `/workspace`); run `make guard-canary` after touching it, `Dockerfile.selfhealing`, or `scripts/analyze.sh`. Edit the laws by editing the policy text, not by tuning prompts (see README "The Killswitch")
 
 ## UI Testing Framework (`uitest/`)
 

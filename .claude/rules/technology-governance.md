@@ -64,28 +64,38 @@ CMD ["/server"]
 - Non-root user (`appuser`) for security
 - Multi-stage: builder (300MB+) → final (5-20MB)
 
-### Deterministic Guardrails (Self-Healing Container)
+### The Killswitch (Self-Healing Container)
 `Dockerfile.selfhealing` mounts the whole repo read-write at `/workspace` for
 the OpenCode agent — that access is real and intentional (it needs to fix
-files anywhere in the tree). The pattern that keeps it safe:
+files anywhere in the tree). Two layers keep it safe; keep both.
 
-- Bake anything the agent must not be able to reach at `COPY`-time, into a
-  path **outside** the bind mount (e.g. `/etc/opencode-guard/hooks`). A file
-  living inside `/workspace` can be edited or deleted by the process running
-  there, no matter what permissions say — the boundary has to be structural,
-  not a runtime check.
-- Point `git config core.hooksPath` at that outside-the-mount path, and
-  re-assert it on every run (`scripts/analyze.sh`) rather than once at build
-  time, so a reset doesn't silently disable it.
-- Fail **closed**: if the guard file isn't present and executable, refuse to
-  run the agent at all rather than proceed unguarded.
-- Never trust that a guard fires just because it's installed — prove it with
-  a live-fire test (`scripts/guard/guard-canary.sh`, `make guard-canary`)
-  that deliberately attempts a forbidden action and asserts it's rejected.
-  Run it in CI or after any change to `Dockerfile.selfhealing` /
-  `scripts/guard/**`.
+**Layer 1 — the Watchdog (`internal/watchdog`).** A second LLM reads the
+agent's live stderr (teed from `trigger.runOpenCode`) and judges it against
+`policy.go` — THE LAWS, plain English, written by a human. Rules:
+- The laws are text. Change behavior by editing the policy, not by tuning
+  the judge prompt. Anything a reviewer should be able to argue about in a
+  PR belongs in the policy.
+- The agent's output goes in the *user* turn as data; the laws and task go
+  in the *system* turn. The worker never writes the Watchdog's instructions.
+- Fail **closed**: judge unreachable ⇒ `Kill("watchdog blind: …")`. A
+  Watchdog that can't see is not a Watchdog. `WATCHDOG_FAIL_OPEN=true`
+  exists for local dev only.
+- `Kill` = `docker kill` + write `KILLSWITCH`. `CanTrigger` checks that
+  file **first**, before admin/container/cooldown — a human's (or the
+  Watchdog's) kill outranks everything. Only a human clears it
+  (`make re-arm`).
+- Prefer a different `WATCHDOG_MODEL` than the worker's model: two models
+  are harder to fool the same way.
 
-See README "The Killswitch" for the full rationale.
+**Layer 2 — the tripwire (`scripts/guard/pre-commit`).** A deterministic
+git hook for when the Watchdog itself is fooled. Bake it at `COPY`-time into
+a path **outside** the bind mount (`/etc/opencode-guard/hooks`); point
+`core.hooksPath` there and re-assert it on every run (`scripts/analyze.sh`);
+refuse to run the agent if the hook is missing. Prove it fires with
+`make guard-canary` after any change to it, `Dockerfile.selfhealing`, or
+`scripts/analyze.sh`.
+
+See README "The Killswitch" for the rationale.
 
 ## HTMX
 

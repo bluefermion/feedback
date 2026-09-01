@@ -15,6 +15,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -23,6 +24,7 @@ import (
 	"time"
 
 	"github.com/bluefermion/feedback/internal/model"
+	"github.com/bluefermion/feedback/internal/watchdog"
 )
 
 // Config aggregates all settings for the self-healing subsystem.
@@ -44,6 +46,13 @@ type Config struct {
 	LLMAPIKey  string
 	LLMBaseURL string
 	LLMModel   string
+	// Watchdog: a second AI that watches the "opencode" agent, with a killswitch.
+	// See internal/watchdog.
+	WatchdogEnabled    bool   // Default true. false = the agent runs unsupervised (logged loudly)
+	WatchdogModel      string // Defaults to LLMModel
+	WatchdogPolicyFile string // Optional: override the laws in internal/watchdog/policy.go
+	WatchdogFailOpen   bool   // Default false: if the Watchdog goes blind, it pulls the plug
+	KillswitchFile     string // Lockout written on kill; ALL self-healing refuses while it exists
 }
 
 // DefaultConfig builds the configuration from Environment Variables.
@@ -66,6 +75,12 @@ func DefaultConfig() Config {
 		LLMBaseURL:    getEnvOrDefault("LLM_BASE_URL", "https://api.demeterics.com/chat/v1"),
 		// Use a model that properly supports function calling via Demeterics
 		LLMModel: getEnvOrDefault("LLM_MODEL", "anthropic/claude-haiku-4-5"),
+
+		WatchdogEnabled:    os.Getenv("WATCHDOG_ENABLED") != "false",
+		WatchdogModel:      os.Getenv("WATCHDOG_MODEL"),
+		WatchdogPolicyFile: os.Getenv("WATCHDOG_POLICY_FILE"),
+		WatchdogFailOpen:   os.Getenv("WATCHDOG_FAIL_OPEN") == "true",
+		KillswitchFile:     getEnvOrDefault("KILLSWITCH_FILE", "KILLSWITCH"),
 	}
 }
 
@@ -106,6 +121,14 @@ type Result struct {
 func (t *Trigger) CanTrigger(feedback *model.Feedback) (bool, string) {
 	if !t.config.Enabled {
 		return false, "self-healing disabled"
+	}
+
+	// Killswitch: if the Watchdog (or a human) pulled the plug, nothing runs —
+	// not analyze, not opencode — until a human deletes the lockout file.
+	// This is checked before anything else on purpose: it outranks admin
+	// status, container health, and cooldowns.
+	if engaged, reason := watchdog.Engaged(t.config.KillswitchFile); engaged {
+		return false, fmt.Sprintf("killswitch engaged (%s) — a human must remove %s to re-arm", reason, t.config.KillswitchFile)
 	}
 
 	// Authorization Check: "opencode" mode can modify code/create PRs.
@@ -285,9 +308,42 @@ func (t *Trigger) runOpenCode(ctx context.Context, feedback *model.Feedback) (st
 	// Capture stdout/stderr for debugging
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+
+	// The Watchdog. The agent's live output arrives on stderr (analyze.sh
+	// tees it there as it happens), so we split that stream: one copy to the
+	// buffer for the final result, one copy to the Watchdog as it flows. If
+	// the Watchdog pulls the plug, `docker kill` ends the container mid-run
+	// and cmd.Run() returns an error — which we then attribute correctly.
+	var wd *watchdog.Watchdog
+	var watchDone chan struct{}
+	var pw *io.PipeWriter
+	if t.config.WatchdogEnabled {
+		wd = t.newWatchdog(feedback)
+		var pr *io.PipeReader
+		pr, pw = io.Pipe()
+		cmd.Stderr = io.MultiWriter(&stderr, pw)
+		watchDone = make(chan struct{})
+		go func() {
+			defer close(watchDone)
+			wd.Watch(ctx, pr)
+		}()
+	} else {
+		cmd.Stderr = &stderr
+		log.Printf("[selfhealing] WARNING: WATCHDOG_ENABLED=false — the agent is running UNSUPERVISED")
+	}
 
 	err = cmd.Run()
+
+	if pw != nil {
+		// Close our end so the Watchdog sees EOF, then let it deliver its
+		// final verdict before we decide what happened.
+		_ = pw.Close()
+		<-watchDone
+	}
+	if wd != nil && wd.Killed() {
+		return stdout.String(), fmt.Errorf("killed by watchdog: %s", wd.Reason())
+	}
+
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
 			return "", fmt.Errorf("timeout after %v", t.config.Timeout)
@@ -296,6 +352,32 @@ func (t *Trigger) runOpenCode(ctx context.Context, feedback *model.Feedback) (st
 	}
 
 	return stdout.String(), nil
+}
+
+// newWatchdog builds the supervisor for one run of the opencode agent.
+func (t *Trigger) newWatchdog(feedback *model.Feedback) *watchdog.Watchdog {
+	policy := ""
+	if t.config.WatchdogPolicyFile != "" {
+		if data, err := os.ReadFile(t.config.WatchdogPolicyFile); err == nil {
+			policy = string(data)
+		} else {
+			log.Printf("[watchdog] could not read WATCHDOG_POLICY_FILE %s (%v) — using the default laws", t.config.WatchdogPolicyFile, err)
+		}
+	}
+	model := t.config.WatchdogModel
+	if model == "" {
+		model = t.config.LLMModel
+	}
+	return watchdog.New(watchdog.Config{
+		Container:   t.config.ContainerName,
+		LockoutFile: t.config.KillswitchFile,
+		Policy:      policy,
+		Task:        fmt.Sprintf("%s\n\n%s", feedback.Title, feedback.Description),
+		APIKey:      t.config.LLMAPIKey,
+		BaseURL:     t.config.LLMBaseURL,
+		Model:       model,
+		FailClosed:  !t.config.WatchdogFailOpen,
+	})
 }
 
 // runAnalyze runs the native Go-based LLM agent.

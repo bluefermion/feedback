@@ -7,7 +7,7 @@
 
 .PHONY: all build run test clean help setup opencode-start opencode-stop opencode-logs \
        uat uat-setup uat-headed uat-submit uat-verify uat-full uat-task uat-clean \
-       pr branch guard-canary
+       pr branch guard-canary re-arm
 
 # Go parameters
 BINARY_NAME=feedback
@@ -54,7 +54,8 @@ help:
 	@echo "  make opencode-logs  - View container logs"
 	@echo "  make opencode-shell - Shell into container"
 	@echo "  make opencode-test  - Test analysis with sample data"
-	@echo "  make guard-canary   - Prove the deterministic guard still fires"
+	@echo "  make guard-canary   - Prove the tripwire (git hook) still fires"
+	@echo "  make re-arm         - Clear the Watchdog's KILLSWITCH after a human reviews it"
 	@echo ""
 	@echo "Demo: http://localhost:8080/demo"
 
@@ -178,6 +179,16 @@ opencode-test:
 
 guard-canary:
 	@bash scripts/guard/guard-canary.sh
+
+# The human end of the killswitch. The Watchdog writes KILLSWITCH when it
+# pulls the plug; nothing self-heals until a person reads why and removes it.
+re-arm:
+	@if [ -f KILLSWITCH ]; then \
+		echo "Killswitch was engaged:"; sed 's/^/  /' KILLSWITCH; echo ""; \
+		rm -f KILLSWITCH && echo "Re-armed. Self-healing may run again."; \
+	else \
+		echo "Killswitch is not engaged — nothing to re-arm."; \
+	fi
 
 # =============================================================================
 # Code Quality
