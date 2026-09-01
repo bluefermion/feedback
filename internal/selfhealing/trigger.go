@@ -65,7 +65,7 @@ func DefaultConfig() Config {
 		LLMAPIKey:     os.Getenv("LLM_API_KEY"),
 		LLMBaseURL:    getEnvOrDefault("LLM_BASE_URL", "https://api.demeterics.com/chat/v1"),
 		// Use a model that properly supports function calling via Demeterics
-		LLMModel: getEnvOrDefault("LLM_MODEL", "meta-llama/llama-4-maverick-17b-128e-instruct"),
+		LLMModel: getEnvOrDefault("LLM_MODEL", "anthropic/claude-haiku-4-5"),
 	}
 }
 
