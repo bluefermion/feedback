@@ -101,6 +101,33 @@ if [ -z "$(ls -A $WORKSPACE 2>/dev/null)" ]; then
 fi
 
 # ------------------------------------------------------------------------------
+# 2b. DETERMINISTIC GUARD
+# ------------------------------------------------------------------------------
+# Point git's hook lookup at /etc/opencode-guard/hooks, which was baked into
+# the image (see Dockerfile.selfhealing) and lives OUTSIDE the read-write
+# /workspace mount. Re-asserted on every run, before every agent invocation,
+# so even if something upstream reset it, the boundary reinstalls itself
+# rather than silently staying off.
+#
+# Fail CLOSED, not open: the probabilistic content guard in
+# internal/selfhealing/guards.go fails open when it can't reach its API
+# (a defensible choice for a text classifier — see its own comments). This
+# is different in kind, not just degree: it decides whether the agent is
+# allowed to write to disk at all, so if it can't be installed we refuse to
+# run rather than let the agent operate unguarded.
+GUARD_HOOKS_DIR="/etc/opencode-guard/hooks"
+if [ ! -x "$GUARD_HOOKS_DIR/pre-commit" ]; then
+    log "ERROR: deterministic guard not found at $GUARD_HOOKS_DIR/pre-commit"
+    echo "{\"error\": \"deterministic guard missing at $GUARD_HOOKS_DIR/pre-commit — refusing to run unguarded (see scripts/guard/guard-canary.sh)\"}"
+    exit 1
+fi
+
+git config --global --add safe.directory "$WORKSPACE" 2>/dev/null || true
+git -C "$WORKSPACE" config core.hooksPath "$GUARD_HOOKS_DIR"
+export GUARD_LOG="${GUARD_LOG:-/var/log/opencode-guard.log}"
+log "Deterministic guard active: core.hooksPath=$GUARD_HOOKS_DIR, log=$GUARD_LOG"
+
+# ------------------------------------------------------------------------------
 # 3. PROMPT CONSTRUCTION
 # ------------------------------------------------------------------------------
 

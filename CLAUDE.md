@@ -80,6 +80,7 @@ widget/js/                → Frontend widget (auto-init)
 - Go 1.22+ panics on duplicate route patterns — check before adding
 - Template-struct mismatches crash at runtime — verify before deploy
 - Check `github.com/patdeg/common` before adding new utilities
+- Self-healing's `opencode` mode has TWO independent gates, not one: the `ADMIN_EMAILS` check in `internal/selfhealing/trigger.go`, and a deterministic `git` hook (`scripts/guard/pre-commit`) baked into `Dockerfile.selfhealing` outside the writable `/workspace` mount. Run `make guard-canary` after touching `Dockerfile.selfhealing`, `scripts/analyze.sh`, or anything under `scripts/guard/` — it live-fire-tests that the guard still blocks/allows correctly instead of silently no-op'ing (see README "Guardrails You Can't Talk Your Way Past")
 
 ## UI Testing Framework (`uitest/`)
 

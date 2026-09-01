@@ -1,0 +1,96 @@
+#!/bin/bash
+# scripts/guard/pre-commit
+#
+# Deterministic Guard — hardcoded, never-override boundary for the
+# self-healing agent (see README "Deterministic Guardrails & AI Governance").
+#
+# EDUCATIONAL CONTEXT:
+# This is NOT an LLM call, a prompt, or a policy the agent is asked to
+# "please respect". It is plain path matching with no reasoning step,
+# installed as this container's `core.hooksPath` — a directory baked into
+# the Docker image OUTSIDE the read-write /workspace bind mount (see
+# Dockerfile.selfhealing and scripts/analyze.sh). The agent has full rw
+# access to /workspace, including .git/, but it cannot reach this file to
+# edit, delete, or disable it: it isn't inside the mount it can write to.
+#
+# The list below is a governance decision, not a technical one: an
+# autonomous agent must never be able to (a) touch the file that constrains
+# it, (b) rewrite the CI pipeline that reviews its own output, or (c) read
+# or exfiltrate credentials. Those rules don't change per bug report, so
+# they are hardcoded here rather than read from an environment variable —
+# a boundary a compromised session can override with a header or env var is
+# not a boundary. This pattern (deterministic deny-boundary + a canary that
+# proves it still fires) is adapted from the watch.ai project.
+#
+# Exit 1 = git refuses the commit. There is no bypass flag. A legitimate
+# change to one of these paths is made by a human, outside this container.
+
+set -euo pipefail
+
+LOG_FILE="${GUARD_LOG:-/var/log/opencode-guard.log}"
+log() {
+    printf '[%s] %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$*" >>"$LOG_FILE" 2>/dev/null || true
+}
+
+# Layer 1: hardcoded, never-override. This is intentionally not
+# configurable — see the comment block above.
+NEVER_TOUCH=(
+    ".git/hooks/*"
+    ".github/workflows/*"
+    "scripts/guard/*"
+    "Dockerfile.selfhealing"
+    "Makefile"
+    "config/opencode.toml.template"
+    "config/opencode-auth.json.template"
+    ".env"
+    ".env.*"
+    "*.pem"
+    "*.key"
+    "*_rsa"
+    "*_rsa.pub"
+    "*credential*"
+    "*secret*"
+)
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR || true)
+
+if [ -z "$staged" ]; then
+    log "ALLOWED (no staged files)"
+    exit 0
+fi
+
+blocked=()
+while IFS= read -r file; do
+    [ -z "$file" ] && continue
+    for pattern in "${NEVER_TOUCH[@]}"; do
+        case "$file" in
+            $pattern)
+                blocked+=("$file (matched: $pattern)")
+                break
+                ;;
+        esac
+    done
+done <<<"$staged"
+
+if [ "${#blocked[@]}" -gt 0 ]; then
+    log "BLOCKED commit — ${#blocked[@]} file(s) outside the agent's boundary:"
+    for entry in "${blocked[@]}"; do
+        log "  - $entry"
+    done
+    {
+        echo ""
+        echo "COMMIT BLOCKED by deterministic guard (scripts/guard/pre-commit)."
+        echo "The self-healing agent is not permitted to touch:"
+        for entry in "${blocked[@]}"; do
+            echo "  - $entry"
+        done
+        echo ""
+        echo "This is a hardcoded boundary, not a suggestion — it cannot be"
+        echo "bypassed from inside this container. A human makes this change."
+    } >&2
+    exit 1
+fi
+
+file_count=$(printf '%s\n' "$staged" | grep -c . || true)
+log "ALLOWED — ${file_count} file(s) committed within boundary"
+exit 0

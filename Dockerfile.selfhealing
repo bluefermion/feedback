@@ -31,6 +31,16 @@ COPY scripts/analyze.sh /app/analyze.sh
 COPY scripts/setup-auth.sh /app/setup-auth.sh
 RUN chmod +x /app/*.sh
 
+# Deterministic guard: baked into the image at a path OUTSIDE /workspace,
+# which is bind-mounted read-write from the host repo. The agent has full
+# rw access to /workspace, including its own .git/hooks/, but it cannot
+# reach this directory to edit or delete the guard — see
+# scripts/guard/pre-commit and README "Deterministic Guardrails & AI
+# Governance" for why that distinction is the whole point.
+RUN mkdir -p /etc/opencode-guard/hooks
+COPY scripts/guard/pre-commit /etc/opencode-guard/hooks/pre-commit
+RUN chmod +x /etc/opencode-guard/hooks/pre-commit
+
 # Environment
 ENV LLM_BASE_URL=https://api.groq.com/openai/v1
 ENV OPENCODE_REPO_DIR=/workspace

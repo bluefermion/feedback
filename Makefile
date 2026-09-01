@@ -7,7 +7,7 @@
 
 .PHONY: all build run test clean help setup opencode-start opencode-stop opencode-logs \
        uat uat-setup uat-headed uat-submit uat-verify uat-full uat-task uat-clean \
-       pr branch
+       pr branch guard-canary
 
 # Go parameters
 BINARY_NAME=feedback
@@ -54,6 +54,7 @@ help:
 	@echo "  make opencode-logs  - View container logs"
 	@echo "  make opencode-shell - Shell into container"
 	@echo "  make opencode-test  - Test analysis with sample data"
+	@echo "  make guard-canary   - Prove the deterministic guard still fires"
 	@echo ""
 	@echo "Demo: http://localhost:8080/demo"
 
@@ -174,6 +175,9 @@ opencode-test:
 	@TEST_JSON='{"title":"Test bug","description":"The submit button does not work","type":"bug","url":"http://localhost/test"}' && \
 		TEST_B64=$$(echo "$$TEST_JSON" | base64 -w0) && \
 		docker exec $(CONTAINER_NAME) /app/analyze.sh "$$TEST_B64"
+
+guard-canary:
+	@bash scripts/guard/guard-canary.sh
 
 # =============================================================================
 # Code Quality

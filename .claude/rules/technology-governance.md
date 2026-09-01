@@ -64,6 +64,29 @@ CMD ["/server"]
 - Non-root user (`appuser`) for security
 - Multi-stage: builder (300MB+) → final (5-20MB)
 
+### Deterministic Guardrails (Self-Healing Container)
+`Dockerfile.selfhealing` mounts the whole repo read-write at `/workspace` for
+the OpenCode agent — that access is real and intentional (it needs to fix
+files anywhere in the tree). The pattern that keeps it safe:
+
+- Bake anything the agent must not be able to reach at `COPY`-time, into a
+  path **outside** the bind mount (e.g. `/etc/opencode-guard/hooks`). A file
+  living inside `/workspace` can be edited or deleted by the process running
+  there, no matter what permissions say — the boundary has to be structural,
+  not a runtime check.
+- Point `git config core.hooksPath` at that outside-the-mount path, and
+  re-assert it on every run (`scripts/analyze.sh`) rather than once at build
+  time, so a reset doesn't silently disable it.
+- Fail **closed**: if the guard file isn't present and executable, refuse to
+  run the agent at all rather than proceed unguarded.
+- Never trust that a guard fires just because it's installed — prove it with
+  a live-fire test (`scripts/guard/guard-canary.sh`, `make guard-canary`)
+  that deliberately attempts a forbidden action and asserts it's rejected.
+  Run it in CI or after any change to `Dockerfile.selfhealing` /
+  `scripts/guard/**`.
+
+See README "Guardrails You Can't Talk Your Way Past" for the full rationale.
+
 ## HTMX
 
 ### Integration Pattern

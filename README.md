@@ -26,7 +26,7 @@ Think of it as a concept car for software engineering. Every feature you see her
 
 ---
 
-## The Five Innovations
+## The Six Innovations
 
 ### 1. 📸 Privacy-First Screenshot Capture
 
@@ -191,9 +191,59 @@ flowchart LR
 
 ---
 
+### 6. 🛡️ Guardrails You Can't Talk Your Way Past (Deterministic AI Governance)
+
+**The Problem:** Innovation #3 hands an AI agent a Docker container and admin approval, then trusts the agent — and every prompt that reaches it — to behave. The only gate is `ADMIN_EMAILS`, checked in application code: the same class of code the agent can read and, given write access to the repo, edit. The LLM-based checks in `internal/selfhealing/guards.go` are a different tool for a different job — they classify *text* for injection or toxicity, and, like most content classifiers, this repo's own implementation deliberately **fails open** when the classifier is unavailable. That's a defensible default for "is this message toxic?" It is the wrong default for "can this agent write to disk?"
+
+We found the gap while building this: `config/opencode.toml.template` has declared `[safety] enabled = true` since this project's first commit. Nothing has ever read that file. It's dead config pretending to be a safety net — the exact failure mode a sibling internal project, **watch.ai** (an agent-supervision layer, not open source), was built to catch, after a real deny-hook there sat silently broken for a month because a missing settings file made it fail with no error at all.
+
+**The Solution:** A second boundary that isn't part of the conversation with the LLM at all. `scripts/guard/pre-commit` is a plain `git` hook — no model, no prompt, no judgment call, just pattern matching — installed as `core.hooksPath` at `/etc/opencode-guard/hooks`, a path baked into the Docker image **outside** the read-write `/workspace` mount the agent operates in (see `Dockerfile.selfhealing`, `scripts/analyze.sh`). The agent has full read/write access to the rest of the repo, including its own `.git/hooks/` — but it cannot reach this file to edit or disable it, because it isn't inside the mount it can write to. The hook hard-rejects any commit that touches the guard itself, `.github/workflows/**`, or anything secret-shaped, before it ever reaches disk history.
+
+A rule nobody checks eventually stops being true. `scripts/guard/guard-canary.sh` (`make guard-canary`) live-fire-tests the boundary on a disposable scratch repo: it *tries* to commit a forbidden change and asserts it's rejected, tries a legitimate change and asserts it's allowed, and checks the guard's own log to prove the hook actually ran rather than silently no-op'ing. It exits non-zero the moment any of that stops being true — the same "does the log show it's still alive?" signature watch.ai's canary checks.
+
+```mermaid
+flowchart TB
+    Agent["🤖 OpenCode Agent<br/>(full read/write on /workspace)"]
+
+    subgraph Boundary["Deterministic Guard — lives outside /workspace, agent cannot edit it"]
+        direction TB
+        Check{"Staged files match a<br/>hardcoded never-touch pattern?"}
+    end
+
+    Agent -->|"git commit"| Check
+    Check -->|"No: app source, tests, docs"| Allow["Commit allowed"]
+    Check -->|"Yes: CI config, the<br/>guard itself, secrets"| Block["Commit blocked<br/>exit 1, no bypass flag"]
+
+    Allow --> Log[("Guard log")]
+    Block --> Log
+
+    Canary["Guard Canary<br/>scheduled live-fire test"] -->|"reads"| Log
+    Canary --> Alert{"Log shows both an<br/>ALLOW and a BLOCK line?"}
+    Alert -->|"No: guard is silent"| PageHuman["Alert a human"]
+    Alert -->|"Yes"| Quiet["No action needed"]
+
+    style Agent fill:#2196F3,stroke:#1976D2,color:#fff
+    style Block fill:#f44336,stroke:#d32f2f,color:#fff
+    style Allow fill:#4CAF50,stroke:#388E3C,color:#fff
+    style Canary fill:#FF9800,stroke:#F57C00,color:#fff
+    style PageHuman fill:#f44336,stroke:#d32f2f,color:#fff
+```
+
+**Why it matters:** This is where "self-healing" stops being a story about clever automation and starts being a story about **governance** — the deliberate, human decision about what an autonomous system is and isn't allowed to do, enforced independently of whatever the system itself decides in the moment. Three properties make the difference:
+
+- **It can't be argued with.** A `case` statement has no theory of mind to social-engineer. Prompt injection, jailbreaks, and "ignore previous instructions" attacks all work by changing what a *reasoning* system concludes — they have no purchase on code that isn't reasoning at all.
+- **It can't modify its own oversight.** The moment an autonomous system can edit the mechanism constraining it, that mechanism is a suggestion, not a rule. Keeping the guard outside the agent's writable filesystem — a small, mechanical instance of the same "capability absence" principle behind another internal project, **pool.ai**, never holding the credentials to dose chemicals itself — is what turns this from a policy into an actual boundary.
+- **It's verified, not assumed.** A guard nobody checks is a liability wearing a safety label. The canary is what makes the difference between "we believe this is safe" and "we can currently prove it."
+
+None of this is specific to bug-fixing agents. As AI systems get real-world capability — writing code, opening PRs, eventually touching production — *someone* has to decide, in advance and in the open, what they may never do regardless of how convincing the reasoning for doing it looks in the moment. That decision is what governance means here: not a values statement, a hardcoded boundary a human wrote, that fails closed, that the system under it cannot reach, and that gets tested rather than trusted.
+
+**Technologies:** `git` hooks (`core.hooksPath`), Docker image-layer isolation, Bash — deliberately zero LLM calls in the enforcement path
+
+---
+
 ## The Big Picture
 
-Here's how all five innovations work together:
+Here's how all six innovations work together:
 
 ```mermaid
 flowchart TB
@@ -205,6 +255,11 @@ flowchart TB
         API["API Server"]
         Analyze["🤖 Agentic Analysis<br/>(LLM + Tool Calls)"]
         Heal["🐳 Self-Healing<br/>(OpenCode Docker)"]
+    end
+
+    subgraph Governance["Deterministic Guardrails"]
+        Guard{"🛡️ Guard<br/>never-touch check"}
+        Canary["Guard Canary<br/>live-fire test"]
     end
 
     subgraph GitHub["GitHub"]
@@ -220,7 +275,10 @@ flowchart TB
     Widget -->|"Bug Report"| API
     API --> Analyze
     Analyze -->|"Suggested Fix"| Heal
-    Heal -->|"Auto-Generated"| PR
+    Heal -->|"git commit"| Guard
+    Guard -->|"Allowed"| PR
+    Guard -->|"Blocked: exit 1"| Rejected["Rejected<br/>no bypass"]
+    Canary -.->|"verifies"| Guard
     PR --> Action
     Action -->|"AI Review"| PR
     PR -->|"Merged"| Repo
@@ -232,6 +290,9 @@ flowchart TB
     style Heal fill:#2196F3,stroke:#1976D2,color:#fff
     style Action fill:#9C27B0,stroke:#7B1FA2,color:#fff
     style UAT fill:#00BCD4,stroke:#0097A7,color:#fff
+    style Guard fill:#795548,stroke:#4E342E,color:#fff
+    style Canary fill:#FF9800,stroke:#F57C00,color:#fff
+    style Rejected fill:#f44336,stroke:#d32f2f,color:#fff
 ```
 
 ---
@@ -279,6 +340,7 @@ Submit feedback and watch the AI analyze it in real-time.
 | **Browser Automation** | Playwright + Browser-Use | Reliable, AI-native |
 | **CI/CD** | GitHub Actions | Where your code already lives |
 | **Containerization** | Docker | Secure isolation for self-healing |
+| **Guardrails** | `git` hooks (`core.hooksPath`) + Bash | Deterministic — a boundary the agent can't argue past, and can't reach to disable |
 
 ---
 
@@ -294,7 +356,7 @@ feedback/
 │   ├── handler/         # HTTP handlers (API + HTML)
 │   ├── model/           # Data structures
 │   ├── repository/      # SQLite CRUD
-│   └── selfhealing/     # LLM analysis + tool calling
+│   └── selfhealing/     # LLM analysis + tool calling + probabilistic guards
 ├── widget/
 │   └── js/              # Frontend widget (auto-initializes)
 ├── uat/
@@ -302,8 +364,10 @@ feedback/
 │   └── llm_vision.py    # Screenshot analysis
 ├── .github/workflows/
 │   └── commit-analysis.yml  # AI code review
-└── opencode/
-    └── Dockerfile       # Self-healing container
+├── scripts/guard/
+│   ├── pre-commit       # Deterministic guard (git hook, no LLM)
+│   └── guard-canary.sh  # Live-fire test that the guard still fires
+└── Dockerfile.selfhealing  # Self-healing container (guard baked in outside /workspace)
 ```
 
 </details>
@@ -350,6 +414,7 @@ This repository demonstrates a mindset shift: **AI as a collaborator, not just a
 | Engineer writes fix | AI drafts fix, engineer reviews |
 | Manual code review (days) | AI first-pass review (minutes) |
 | Manual UAT (expensive) | AI-driven UAT (scalable) |
+| "Please don't touch prod" as a policy | A boundary the agent structurally cannot reach, verified by a canary |
 
 The technologies here aren't science fiction—they're production-ready today. This repository shows how to wire them together.
 
@@ -363,6 +428,7 @@ This is an evolving showcase. Upcoming experiments:
 - [ ] **Multi-repo analysis** — AI that understands your monorepo
 - [ ] **Predictive testing** — AI identifies risky code paths before bugs happen
 - [ ] **Sentiment-aware triage** — Prioritize based on user frustration level
+- [ ] **Capability-absence for merge/deploy** — extend Innovation #6: strip merge and production credentials from the OpenCode container entirely, so the agent that proposes a fix is structurally unable to ship it unsupervised, the way pool.ai (another internal project) never holds the credentials to dose pool chemicals itself
 
 ---
 

@@ -74,6 +74,7 @@ Before any deployment, verify:
 5. [ ] Admin views render correctly (/feedback, /feedback/{id})
 6. [ ] Widget loads on /demo page
 7. [ ] No secrets in committed code
+8. [ ] If `Dockerfile.selfhealing`, `scripts/analyze.sh`, or `scripts/guard/**` changed: `make guard-canary` passes (proves the self-healing deterministic guard still blocks/allows correctly, not just that it still exists)
 
 ## Race Detection
 
